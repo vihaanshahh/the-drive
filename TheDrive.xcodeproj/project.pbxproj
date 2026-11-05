@@ -1,0 +1,57 @@
+// !$*UTF8*$!
+{ archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
+A00000000000000000000000 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheDriveApp.swift; sourceTree = "<group>"; };
+B00000000000000000000000 = { isa = PBXBuildFile; fileRef = A00000000000000000000000; };
+A00000000000000000000001 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
+B00000000000000000000001 = { isa = PBXBuildFile; fileRef = A00000000000000000000001; };
+A00000000000000000000002 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameModel.swift; sourceTree = "<group>"; };
+B00000000000000000000002 = { isa = PBXBuildFile; fileRef = A00000000000000000000002; };
+A00000000000000000000003 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldBuilder.swift; sourceTree = "<group>"; };
+B00000000000000000000003 = { isa = PBXBuildFile; fileRef = A00000000000000000000003; };
+C00000000000000000000001 = { isa = PBXGroup; children = (C00000000000000000000002,C00000000000000000000003,AA0000000000000000000001,AB0000000000000000000001); sourceTree = "<group>"; };
+C00000000000000000000002 = { isa = PBXGroup; path = TheDrive; sourceTree = "<group>"; children = (A00000000000000000000000,A00000000000000000000001,A00000000000000000000002,A00000000000000000000003,AD0000000000000000000001,AD0000000000000000000002,AC0000000000000000000001); };
+C00000000000000000000003 = { isa = PBXGroup; name = Products; sourceTree = "<group>"; children = (C00000000000000000000004,AA0000000000000000000003,AB0000000000000000000003); };
+C00000000000000000000004 = { isa = PBXFileReference; explicitFileType = wrapper.application; path = TheDrive.app; sourceTree = BUILT_PRODUCTS_DIR; };
+D00000000000000000000001 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B00000000000000000000000,B00000000000000000000001,B00000000000000000000002,B00000000000000000000003,AE0000000000000000000001,AE0000000000000000000002); runOnlyForDeploymentPostprocessing = 0; };
+D00000000000000000000002 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+D00000000000000000000003 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (AC0000000000000000000002); runOnlyForDeploymentPostprocessing = 0; };
+E00000000000000000000001 = { isa = PBXNativeTarget; buildConfigurationList = F00000000000000000000002; buildPhases = (D00000000000000000000001,D00000000000000000000002,D00000000000000000000003); buildRules = (); dependencies = (); name = TheDrive; productName = TheDrive; productReference = C00000000000000000000004; productType = "com.apple.product-type.application"; };
+E00000000000000000000002 = { isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = YES; LastUpgradeCheck = 2700; }; buildConfigurationList = F00000000000000000000001; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en,Base); mainGroup = C00000000000000000000001; productRefGroup = C00000000000000000000003; projectDirPath = ""; projectRoot = ""; targets = (E00000000000000000000001,AA0000000000000000000007,AB0000000000000000000007); };
+F00000000000000000000010 = { isa = XCBuildConfiguration; name = Debug; buildSettings = { SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 17.0; SWIFT_VERSION = 5.0; CLANG_ENABLE_MODULES = YES; ENABLE_TESTABILITY = YES; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; };
+F00000000000000000000020 = { isa = XCBuildConfiguration; name = Debug; buildSettings = { PRODUCT_NAME = "$(TARGET_NAME)"; PRODUCT_BUNDLE_IDENTIFIER = com.vihaanshah.thedrive; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_CFBundleDisplayName = "The Drive"; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; INFOPLIST_KEY_UIRequiresFullScreen = YES; TARGETED_DEVICE_FAMILY = "1,2"; CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = R3BHK7TDH8; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_STRICT_CONCURRENCY = minimal; }; };
+F00000000000000000000011 = { isa = XCBuildConfiguration; name = Release; buildSettings = { SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 17.0; SWIFT_VERSION = 5.0; CLANG_ENABLE_MODULES = YES; ENABLE_TESTABILITY = YES; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; };
+F00000000000000000000021 = { isa = XCBuildConfiguration; name = Release; buildSettings = { PRODUCT_NAME = "$(TARGET_NAME)"; PRODUCT_BUNDLE_IDENTIFIER = com.vihaanshah.thedrive; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_CFBundleDisplayName = "The Drive"; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"; INFOPLIST_KEY_UIRequiresFullScreen = YES; TARGETED_DEVICE_FAMILY = "1,2"; CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = R3BHK7TDH8; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_STRICT_CONCURRENCY = minimal; }; };
+F00000000000000000000001 = { isa = XCConfigurationList; buildConfigurations = (F00000000000000000000010,F00000000000000000000011); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+F00000000000000000000002 = { isa = XCConfigurationList; buildConfigurations = (F00000000000000000000020,F00000000000000000000021); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+AA0000000000000000000001 = { isa = PBXGroup; path = TheDriveTests; sourceTree = "<group>"; children = (AA0000000000000000000002); };
+AA0000000000000000000002 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameModelTests.swift; sourceTree = "<group>"; };
+AA0000000000000000000003 = { isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = TheDriveTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+AA0000000000000000000004 = { isa = PBXBuildFile; fileRef = AA0000000000000000000002; };
+AA0000000000000000000005 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (AA0000000000000000000004); runOnlyForDeploymentPostprocessing = 0; };
+AA0000000000000000000006 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+AA0000000000000000000007 = { isa = PBXNativeTarget; buildConfigurationList = AA0000000000000000000008; buildPhases = (AA0000000000000000000005,AA0000000000000000000006); buildRules = (); dependencies = (AA000000000000000000000B); name = TheDriveTests; productName = TheDriveTests; productReference = AA0000000000000000000003; productType = "com.apple.product-type.bundle.unit-test"; };
+AA0000000000000000000008 = { isa = XCConfigurationList; buildConfigurations = (AA0000000000000000000009,AA000000000000000000000A); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+AA000000000000000000000B = { isa = PBXTargetDependency; target = E00000000000000000000001; targetProxy = AA000000000000000000000C; };
+AA000000000000000000000C = { isa = PBXContainerItemProxy; containerPortal = E00000000000000000000002; proxyType = 1; remoteGlobalIDString = E00000000000000000000001; remoteInfo = TheDrive; };
+AA0000000000000000000009 = { isa = XCBuildConfiguration; name = Debug; buildSettings = { PRODUCT_NAME = "$(TARGET_NAME)"; PRODUCT_BUNDLE_IDENTIFIER = com.vihaanshah.thedrive.tests; GENERATE_INFOPLIST_FILE = YES; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TheDrive.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TheDrive"; BUNDLE_LOADER = "$(TEST_HOST)"; }; };
+AA000000000000000000000A = { isa = XCBuildConfiguration; name = Release; buildSettings = { PRODUCT_NAME = "$(TARGET_NAME)"; PRODUCT_BUNDLE_IDENTIFIER = com.vihaanshah.thedrive.tests; GENERATE_INFOPLIST_FILE = YES; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TheDrive.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TheDrive"; BUNDLE_LOADER = "$(TEST_HOST)"; }; };
+AB0000000000000000000001 = { isa = PBXGroup; path = TheDriveUITests; sourceTree = "<group>"; children = (AB0000000000000000000002); };
+AB0000000000000000000002 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayTests.swift; sourceTree = "<group>"; };
+AB0000000000000000000003 = { isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = TheDriveUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+AB0000000000000000000004 = { isa = PBXBuildFile; fileRef = AB0000000000000000000002; };
+AB0000000000000000000005 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (AB0000000000000000000004); runOnlyForDeploymentPostprocessing = 0; };
+AB0000000000000000000006 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+AB0000000000000000000007 = { isa = PBXNativeTarget; buildConfigurationList = AB0000000000000000000008; buildPhases = (AB0000000000000000000005,AB0000000000000000000006); buildRules = (); dependencies = (AB000000000000000000000B); name = TheDriveUITests; productName = TheDriveUITests; productReference = AB0000000000000000000003; productType = "com.apple.product-type.bundle.ui-testing"; };
+AB0000000000000000000008 = { isa = XCConfigurationList; buildConfigurations = (AB0000000000000000000009,AB000000000000000000000A); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+AB000000000000000000000B = { isa = PBXTargetDependency; target = E00000000000000000000001; targetProxy = AB000000000000000000000C; };
+AB000000000000000000000C = { isa = PBXContainerItemProxy; containerPortal = E00000000000000000000002; proxyType = 1; remoteGlobalIDString = E00000000000000000000001; remoteInfo = TheDrive; };
+AB0000000000000000000009 = { isa = XCBuildConfiguration; name = Debug; buildSettings = { PRODUCT_NAME = "$(TARGET_NAME)"; PRODUCT_BUNDLE_IDENTIFIER = com.vihaanshah.thedrive.tests; GENERATE_INFOPLIST_FILE = YES; TARGETED_DEVICE_FAMILY = "1,2"; TEST_TARGET_NAME = TheDrive; }; };
+AB000000000000000000000A = { isa = XCBuildConfiguration; name = Release; buildSettings = { PRODUCT_NAME = "$(TARGET_NAME)"; PRODUCT_BUNDLE_IDENTIFIER = com.vihaanshah.thedrive.tests; GENERATE_INFOPLIST_FILE = YES; TARGETED_DEVICE_FAMILY = "1,2"; TEST_TARGET_NAME = TheDrive; }; };
+
+AC0000000000000000000001 = { isa = PBXFileReference; lastKnownFileType = folder; path = Assets; sourceTree = "<group>"; };
+AC0000000000000000000002 = { isa = PBXBuildFile; fileRef = AC0000000000000000000001; };
+AD0000000000000000000001 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCycle.swift; sourceTree = "<group>"; };
+AD0000000000000000000002 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoadSurface.swift; sourceTree = "<group>"; };
+AE0000000000000000000001 = { isa = PBXBuildFile; fileRef = AD0000000000000000000001; };
+AE0000000000000000000002 = { isa = PBXBuildFile; fileRef = AD0000000000000000000002; };
+}; rootObject = E00000000000000000000002; }
