@@ -1,0 +1,52 @@
+{
+  "retrieved_at": "2026-11-06",
+  "provided_by": "User-provided Suno song links",
+  "delivery": "Audio extracted from the public video_url MP4 embedded in each song page. No authentication or protected-stream decoding was used.",
+  "format": { "container": "m4a", "codec": "AAC", "sample_rate": 48000, "channels": 2, "nominal_bitrate": 192000 },
+  "normalization": {
+    "target_bpm": 97,
+    "beats_per_bar": 4,
+    "integrated_loudness_lufs": -18,
+    "true_peak_ceiling_db": -4,
+    "runtime_crossfade_seconds": 0.04,
+    "method": "Spectral-flux onset autocorrelation and beat-grid phase search, followed by FFmpeg pitch-preserving atempo. Tempo/downbeats are estimates from the strongest shared percussive pulse; Suno does not provide a beat grid. Original quiet endings are excluded."
+  },
+  "tracks": [
+    {
+      "id": "thavil-tavil-fusion",
+      "title": "Thavil Tavil Fusion",
+      "share_url": "https://suno.com/s/awxWvqNGmejigyCF",
+      "song_url": "https://suno.com/song/cc6da657-0978-4a2c-8e5b-bdbffc06f4a3",
+      "download_url": "https://cdn1.suno.ai/cc6da657-0978-4a2c-8e5b-bdbffc06f4a3.mp4",
+      "original_duration_seconds": 125.205,
+      "estimated_source_bpm": 96.62,
+      "estimated_downbeat_seconds": 1.92796833,
+      "trim_end_seconds": 120,
+      "tempo_multiplier": 1.003933,
+      "resource": "ThavilTavilFusion.m4a",
+      "duration_seconds": 117.6106666667
+    },
+    {
+      "id": "chant",
+      "title": "chant",
+      "share_url": "https://suno.com/s/YN3fYb6CP3OXGpWA",
+      "song_url": "https://suno.com/song/b2aa13cd-4ac2-4db7-ba5d-40696188b172",
+      "download_url": "https://cdn1.suno.ai/b2aa13cd-4ac2-4db7-ba5d-40696188b172.mp4",
+      "original_duration_seconds": 69.61,
+      "estimated_source_bpm": 97.5,
+      "estimated_downbeat_seconds": 0.90038462,
+      "trim_end_seconds": 65,
+      "tempo_multiplier": 0.994871795,
+      "resource": "Chant.m4a",
+      "duration_seconds": 64.4266666667
+    }
+  ],
+  "offline_verification": {
+    "seed": 17,
+    "rendered_duration_seconds": 128.6597916667,
+    "pieces": 14,
+    "maximum_absolute_pcm_sample": 0.6773881,
+    "silent_10ms_windows_below_minus_100_dbfs": 0,
+    "renderer": "SoundtrackPCMRenderer, shared with live playback"
+  }
+}

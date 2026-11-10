@@ -1,0 +1,20 @@
+ANATOMICAL FOUNDATION — VERSION 2
+
+Blender Studio and community contributors, Human Base Meshes v1.4.1.
+The official asset bundle is published under CC0.
+
+Official asset page:
+https://www.blender.org/download/demo-files/
+
+Official bundle download:
+https://download.blender.org/demo/asset-bundles/human-base-meshes/human-base-meshes-bundle-v1.4.1.zip
+
+Asset bundle documentation:
+https://developer.blender.org/docs/release_notes/3.6/asset_bundles/
+
+The character anatomy is derived from the realistic anatomical assets in this
+bundle, with custom fitting, material treatment, hairstyles, clothing,
+accessories, basic body rigging and scene setup for this project.
+
+The earlier version used simplified procedural anatomy. Version 2 replaces
+that anatomical foundation rather than treating it as a finished sculpt.

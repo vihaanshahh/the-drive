@@ -6,6 +6,27 @@ final class PlayTests: XCTestCase {
         XCUIDevice.shared.orientation = .landscapeLeft
     }
 
+    func testMarketplaceOpeningCanBeSkippedIntoGameplay() {
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.staticTexts["MARKET ROAD"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["REAR GUN"].exists)
+        capture("Marketplace title and automatic background drive")
+        app.buttons["HIT THE ROAD"].tap()
+        XCTAssertTrue(app.buttons["SKIP INTRO"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["REAR GUN"].exists, "Driving controls should wait for the cinematic handover.")
+        capture("Bazaar opening cutscene")
+        app.buttons["SKIP INTRO"].tap()
+        XCTAssertTrue(app.buttons["REAR GUN"].waitForExistence(timeout: 3))
+        let initialLabel = app.buttons["Unmute music"].exists ? "Unmute music" : "Mute music"
+        let toggledLabel = initialLabel == "Mute music" ? "Unmute music" : "Mute music"
+        XCTAssertTrue(app.buttons[initialLabel].exists)
+        app.buttons[initialLabel].tap()
+        XCTAssertTrue(app.buttons[toggledLabel].exists)
+        app.buttons[toggledLabel].tap()
+        XCTAssertTrue(app.buttons[initialLabel].exists)
+    }
+
     func testDrivingMirrorBecomesLiveAndSteeringWorks() {
         let app = launchRun()
         let mirror = app.descendants(matching: .any).matching(identifier: "Live rear view mirror").firstMatch
@@ -52,6 +73,9 @@ final class PlayTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["HIT THE ROAD"].waitForExistence(timeout: 10))
         app.buttons["HIT THE ROAD"].tap()
+        let skip = app.buttons["SKIP INTRO"]
+        XCTAssertTrue(skip.waitForExistence(timeout: 3))
+        skip.tap()
         XCTAssertTrue(app.buttons["REAR GUN"].waitForExistence(timeout: 3))
         return app
     }

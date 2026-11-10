@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="24506" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="launch-controller">
+    <device id="retina6_12" orientation="landscape" appearance="dark"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24500"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <scene sceneID="launch-scene">
+            <objects>
+                <viewController id="launch-controller" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="launch-view">
+                        <rect key="frame" x="0.0" y="0.0" width="852" height="393"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" image="LaunchArtwork" translatesAutoresizingMaskIntoConstraints="NO" id="launch-art">
+                                <rect key="frame" x="0.0" y="0.0" width="852" height="393"/>
+                            </imageView>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="THE&#10;DRIVE" numberOfLines="2" lineBreakMode="wordWrap" translatesAutoresizingMaskIntoConstraints="NO" id="launch-title">
+                                <rect key="frame" x="77" y="109" width="294" height="156"/>
+                                <fontDescription key="fontDescription" type="system" weight="black" pointSize="66"/>
+                                <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="launch-safe"/>
+                        <color key="backgroundColor" red="0.075" green="0.065" blue="0.06" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <constraint firstItem="launch-art" firstAttribute="top" secondItem="launch-view" secondAttribute="top" id="art-top"/>
+                            <constraint firstItem="launch-art" firstAttribute="bottom" secondItem="launch-view" secondAttribute="bottom" id="art-bottom"/>
+                            <constraint firstItem="launch-art" firstAttribute="leading" secondItem="launch-view" secondAttribute="leading" id="art-leading"/>
+                            <constraint firstItem="launch-art" firstAttribute="trailing" secondItem="launch-view" secondAttribute="trailing" id="art-trailing"/>
+                            <constraint firstItem="launch-title" firstAttribute="leading" secondItem="launch-view" secondAttribute="leading" constant="77" id="title-leading"/>
+                            <constraint firstItem="launch-title" firstAttribute="centerY" secondItem="launch-view" secondAttribute="centerY" constant="-10" id="title-center"/>
+                            <constraint firstItem="launch-title" firstAttribute="width" secondItem="launch-view" secondAttribute="width" multiplier="0.36" id="title-width"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="launch-responder" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="53" y="375"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="LaunchArtwork" width="1859" height="846"/>
+    </resources>
+</document>

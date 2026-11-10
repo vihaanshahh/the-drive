@@ -3,11 +3,20 @@ import SceneKit
 import MetalKit
 
 struct GameView: View {
-    @StateObject private var game = GameModel()
+    @StateObject private var game: GameModel
+    @StateObject private var garage: GarageProgress
     @StateObject private var graphics = GameGraphics()
+    @StateObject private var soundtrack = Soundtrack()
     @State private var aimDragStart: CGPoint?
+    @State private var musicRunSeed: UInt64?
+    @AppStorage("TheDrive.musicMuted") private var musicMuted = false
     @Environment(\.scenePhase) private var scenePhase
     private let sand = Color(red: 0.96, green: 0.78, blue: 0.48)
+
+    init(game: GameModel, garage: GarageProgress) {
+        _garage = StateObject(wrappedValue: garage)
+        _game = StateObject(wrappedValue: game)
+    }
 
     var body: some View {
         ZStack {
@@ -22,6 +31,8 @@ struct GameView: View {
                     Spacer()
                     metric("DISTANCE", "\(game.distance) m")
                     metric("SCORE", "\(game.score)")
+                    metric("CASH +\(game.runCash)", "$\(garage.wallet)")
+                    musicButton
                     Button { game.toggleNight() } label: {
                         Image(systemName: game.isNight ? "moon.stars.fill" : "sun.max.fill").font(.title3).padding(12).background(.black.opacity(0.4), in: Circle())
                     }.accessibilityLabel("Toggle day and night").accessibilityValue(game.timeOfDay)
@@ -29,6 +40,11 @@ struct GameView: View {
                 HStack {
                     Label(game.isGunning ? "REAR GUN · MANUAL AIM" : "DRIVING · KEEP MOVING", systemImage: game.isGunning ? "scope" : "steeringwheel")
                         .font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundStyle(sand)
+                    Text("\(Int(game.speed)) KM/H")
+                        .font(.system(size: 10, weight: .heavy, design: .monospaced)).monospacedDigit()
+                        .foregroundStyle(sand).padding(.horizontal, 9).padding(.vertical, 5)
+                        .background(.black.opacity(0.35), in: Capsule())
+                        .accessibilityLabel("Driving speed").accessibilityValue("\(Int(game.speed)) kilometers per hour")
                     Spacer(minLength: 8)
                     if game.started && !game.isGameOver && !game.isCrashing { rearVision }
                     Spacer(minLength: 8)
@@ -64,7 +80,7 @@ struct GameView: View {
                         if game.isGunning {
                             VStack(spacing: 6) {
                                 Button { game.reload() } label: {
-                                    Text(game.isReloading ? "RELOADING…" : "\(game.ammo) / 24 · RELOAD")
+                                    Text(game.isReloading ? "RELOADING…" : "\(game.ammo) / \(game.magazineCapacity) · RELOAD")
                                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                                 }.accessibilityLabel("Reload rear gun")
                                     .disabled(game.isTransitioning || game.isReloading)
@@ -76,7 +92,11 @@ struct GameView: View {
                     }
                 }
             }.padding(.horizontal, 28).padding(.vertical, 18)
-            if !game.started || game.isGameOver { intro }
+                .opacity(game.started && !game.isGameOver ? 1 : 0)
+                .allowsHitTesting(game.started && !game.isGameOver)
+                .accessibilityHidden(!game.started || game.isGameOver)
+            if (!game.started && !game.isInCutscene) || game.isGameOver { intro }
+            if game.isInCutscene { opening }
             if game.isCrashing {
                 VStack {
                     Spacer()
@@ -102,9 +122,18 @@ struct GameView: View {
                     .opacity(game.isTransitioning ? 0 : 1)
             }
         }.foregroundStyle(.white)
+        .onAppear { soundtrack.setMuted(musicMuted) }
+        .onChange(of: game.isInCutscene) { _, value in if value { startMusic() } }
+        .onChange(of: game.started) { _, value in if value { startMusic() } }
+        .onChange(of: game.isGameOver) { _, value in
+            if value { soundtrack.stop(); musicRunSeed = nil }
+        }
+        .onChange(of: musicMuted) { _, value in soundtrack.setMuted(value) }
         .onChange(of: scenePhase) { _, phase in
             game.setPaused(phase != .active)
+            soundtrack.setPaused(phase != .active)
         }
+        .onDisappear { soundtrack.stop() }
     }
 
     private var aimPad: some View {
@@ -162,20 +191,110 @@ struct GameView: View {
     }
 
     private var intro: some View {
-        ZStack {
-            Color.black.opacity(0.5).ignoresSafeArea()
-            VStack(spacing: 15) {
-                Text(game.isGameOver ? "END OF THE ROAD" : "THE DRIVE").font(.system(size: 42, weight: .black, design: .rounded)).tracking(5)
-                Text(game.isGameOver ? "\(game.distance) METERS  /  \(game.score) POINTS" : "AN ENDLESS DESERT ESCAPE").font(.system(size: 12, weight: .bold, design: .monospaced)).tracking(3).foregroundStyle(sand)
-                Text(game.isGameOver ? "The pursuit caught up. Find another way through." : "Dodge late to bait pursuers into wrecks.\nSwitch to the gun, drag the left pad to aim, and hold fire.\nEnemies dodge your shots. Reload and return to driving before hazards.")
-                    .font(.system(size: 14)).multilineTextAlignment(.center).lineSpacing(5).foregroundStyle(.white.opacity(0.85))
-                Button { game.isGameOver ? game.restart() : game.start() } label: {
-                    Text(game.isGameOver ? "TRY ANOTHER ROUTE" : "HIT THE ROAD").font(.system(size: 15, weight: .black, design: .rounded)).tracking(2)
-                        .padding(.horizontal, 34).padding(.vertical, 17).background(sand, in: Capsule()).foregroundStyle(.black)
-                }.padding(.top, 6)
-                Text("PROCEDURAL ROUTE · SEED \(String(game.seed, radix: 16).uppercased())").font(.system(size: 9, design: .monospaced)).foregroundStyle(.white.opacity(0.5))
-            }.padding(30)
+        GeometryReader { proxy in
+            ZStack {
+                LinearGradient(colors: [.black.opacity(0.82), .black.opacity(0.15), .black.opacity(0.70)], startPoint: .leading, endPoint: .trailing).ignoresSafeArea()
+                HStack(alignment: .center, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(game.isGameOver ? "ANOTHER WAY OUT" : "MARKET ROAD")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(4).foregroundStyle(sand)
+                        Text(game.isGameOver ? "END OF\nTHE ROAD" : "THE\nDRIVE")
+                            .font(.system(size: proxy.size.height < 350 ? 41 : 52, weight: .black, design: .rounded)).tracking(5).lineSpacing(-6)
+                        Text(game.isGameOver ? "\(game.distance) m  ·  \(game.score) points\n+$\(game.runCash) earned this run" : "A quiet bazaar. An old Jeep.\nA long way out.")
+                            .font(.system(size: 13, weight: .medium)).lineSpacing(4).foregroundStyle(.white.opacity(0.8))
+                        Button { game.isGameOver ? game.restartOpening() : game.beginOpening() } label: {
+                            HStack(spacing: 12) {
+                                Text(game.isGameOver ? "TRY ANOTHER ROUTE" : "HIT THE ROAD")
+                                Image(systemName: "arrow.right")
+                            }.font(.system(size: 12, weight: .black, design: .rounded)).tracking(1)
+                                .padding(.horizontal, 21).frame(height: 46).background(sand, in: Capsule()).foregroundStyle(.black)
+                        }.padding(.top, 3)
+                        HStack(spacing: 8) {
+                            musicButton
+                            Text("ROUTE \(String(game.seed, radix: 16).uppercased())")
+                                .font(.system(size: 8, design: .monospaced)).foregroundStyle(.white.opacity(0.45))
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                    Spacer(minLength: 0)
+                    VStack(alignment: .leading, spacing: 9) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("ROADSIDE MARKET").font(.system(size: 11, weight: .black, design: .rounded)).tracking(2)
+                                Text("$1 EVERY 10 METERS").font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(sand)
+                            }
+                            Spacer(minLength: 8)
+                            Label("$\(garage.wallet)", systemImage: "banknote.fill")
+                                .font(.system(size: 18, weight: .bold, design: .monospaced)).foregroundStyle(sand)
+                                .accessibilityLabel("Wallet").accessibilityValue("\(garage.wallet) dollars")
+                        }.padding(.bottom, 3)
+                        ForEach(VehicleUpgrade.allCases) { upgrade in upgradeRow(upgrade) }
+                        Text("CASH & UPGRADES SAVED AFTER EVERY DRIVE")
+                            .font(.system(size: 7, weight: .medium, design: .monospaced)).foregroundStyle(.white.opacity(0.45)).tracking(0.6)
+                    }.frame(width: min(310, proxy.size.width * 0.43))
+                }.padding(.horizontal, 34).padding(.vertical, 18)
+            }
         }
+    }
+
+    private func upgradeRow(_ upgrade: VehicleUpgrade) -> some View {
+        let level = garage.level(for: upgrade)
+        let price = garage.cost(for: upgrade)
+        return HStack(spacing: 10) {
+            Image(systemName: upgrade.symbol).font(.system(size: 18)).foregroundStyle(sand).frame(width: 24)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
+                    Text(upgrade.title).font(.system(size: 11, weight: .bold))
+                    Text("\(level)/3").font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(sand)
+                }
+                Text(upgrade.detail).font(.system(size: 8)).foregroundStyle(.white.opacity(0.6))
+            }
+            Spacer(minLength: 0)
+            Button { garage.purchase(upgrade) } label: {
+                Text(price.map { "$\($0)" } ?? "MAX")
+                    .font(.system(size: 11, weight: .black, design: .monospaced))
+                    .frame(width: 48, height: 33)
+                    .foregroundStyle(price != nil && garage.wallet >= (price ?? 0) ? Color.black : sand.opacity(0.5))
+                    .background(price != nil && garage.wallet >= (price ?? 0) ? sand : sand.opacity(0.09), in: RoundedRectangle(cornerRadius: 10))
+            }.disabled(price == nil || garage.wallet < (price ?? 0))
+                .accessibilityLabel("Upgrade \(upgrade.title)")
+                .accessibilityValue("Level \(level) of 3" + (price.map { ", \($0) dollars" } ?? ", maximum level"))
+        }.padding(.horizontal, 12).padding(.vertical, 11)
+            .background(.black.opacity(0.48), in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(sand.opacity(0.14)))
+    }
+
+    private var opening: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("THE MARKET ROAD").font(.system(size: 10, weight: .black, design: .monospaced)).tracking(4).foregroundStyle(sand)
+                Spacer()
+                Button { game.skipOpening() } label: {
+                    Label("SKIP INTRO", systemImage: "forward.end.fill")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced)).padding(.horizontal, 14).padding(.vertical, 10)
+                        .background(.white.opacity(0.1), in: Capsule())
+                }.accessibilityLabel("SKIP INTRO")
+            }.padding(.horizontal, 32).padding(.vertical, 14).background(.black.opacity(0.9))
+            Spacer()
+            VStack(spacing: 8) {
+                Text(game.openingProgress < 0.55 ? "ONE QUIET MORNING IN SADAR BAZAAR" : "THE ROAD IS YOURS. KEEP MOVING.")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced)).tracking(2)
+                ProgressView(value: game.openingProgress).tint(sand).frame(width: 210)
+            }.padding(.vertical, 17).frame(maxWidth: .infinity).background(.black.opacity(0.9))
+        }.ignoresSafeArea(edges: .vertical)
+    }
+
+    private var musicButton: some View {
+        Button { musicMuted.toggle() } label: {
+            Image(systemName: musicMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                .font(.system(size: 14)).frame(width: 36, height: 36).background(.black.opacity(0.4), in: Circle())
+        }.accessibilityLabel(musicMuted ? "Unmute music" : "Mute music")
+    }
+
+    private func startMusic() {
+        guard musicRunSeed != game.seed else { return }
+        musicRunSeed = game.seed
+        soundtrack.setMuted(musicMuted)
+        soundtrack.start(seed: game.seed)
     }
 
     private func metric(_ label: String, _ value: String) -> some View {

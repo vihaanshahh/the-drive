@@ -12,7 +12,7 @@ enum WorldBuilder {
     private static let rust = UIColor(red: 0.48, green: 0.23, blue: 0.14, alpha: 1)
     private static let warm = UIColor(red: 1, green: 0.65, blue: 0.24, alpha: 1)
 
-    static func makeChunk(index: Int, seed: UInt64, night: Bool) -> SCNNode {
+    static func makeChunk(index: Int, seed: UInt64, night: Bool, openingMarket: Bool = false) -> SCNNode {
         var rng = SeededRandom(state: seed &+ UInt64(bitPattern: Int64(index)) &* 0x9E3779B97F4A7C15)
         let root = SCNNode()
         let centerDistance = Double(index - 1) * Double(chunkLength)
@@ -50,42 +50,24 @@ enum WorldBuilder {
                 curb.eulerAngles.x = RoadSurface.sample(distance: centerDistance - Double(z), x: side * 5.7, seed: seed).pitch
                 root.addChildNode(curb)
             }
+            if houseRows > 0 {
+                let wall = box(0.28, 1.05, 42, sand, at: SCNVector3(side * 16.3, roadHeight(side * 5.7, 0) + 0.5, 0))
+                wall.geometry?.firstMaterial = surface("masonry", tint: UIColor(red: 0.62, green: 0.48, blue: 0.36, alpha: 1), repeatX: 2, repeatY: 1)
+                root.addChildNode(wall)
+            }
             for row in 0..<houseRows {
                 let z = houseRows == 4 ? Float(row) * 12 - 18 : Float(row) * 16 - 16
-                let model = Int(rng.range(0, 5.999))
                 let ruined = district == 1 || (row + index) % 7 == 0
-                if let building = makeImportedBuilding(type: model, ruined: ruined) {
-                    let bounds = building.boundingBox
-                    let depth = bounds.max.z - bounds.min.z
-                    let width = bounds.max.x - bounds.min.x
-                    let x = side * (8.1 + depth / 2 + rng.range(0, 1.5))
-                    var low: Float = .greatestFiniteMagnitude
-                    var high: Float = -.greatestFiniteMagnitude
-                    for dz in [-width / 2, width / 2] {
-                        let h = roadHeight(side * 5.7, z + dz)
-                        low = min(low, h); high = max(high, h)
-                    }
-                    let base = high + 0.025
-                    let foundationHeight = max(0.18, high - low + 0.25)
-                    root.addChildNode(box(depth + 0.1, foundationHeight, width + 0.1, sand,
-                                          at: SCNVector3(x, base - foundationHeight / 2, z)))
-                    building.position = SCNVector3(x, base, z)
-                    building.eulerAngles.y = side * .pi / 2
-                    root.addChildNode(building)
-                    if ruined, let fence = makeImportedEnvironment(name: "fence_open") {
-                        fence.position = SCNVector3(side * 7.7, roadHeight(side * 5.7, z + 3) - 0.03, z + 3)
-                        fence.eulerAngles.y = side * .pi / 2
-                        root.addChildNode(fence)
-                    }
-                }
-                for _ in 0..<(ruined ? 5 : 2) {
+                placeLot(side: side, z: z, street: openingMarket ? 11.1 : 8.1, model: Int(rng.range(0, 5.999)), ruined: ruined, rng: &rng, roadHeight: roadHeight, into: root)
+                placeDesertHome(side: side, z: z, street: 21.2, model: (row + index) % 4, roadHeight: roadHeight, into: root)
+                for _ in 0..<(openingMarket ? 0 : (ruined ? 5 : 2)) {
                     let x = side * rng.range(6.4, 8)
                     let rz = z + rng.range(-4, 4)
-                    let rock = ellipsoid(radius: rng.range(0.15, 0.4), scale: SCNVector3(1.5, 0.6, 1), color: sand,
-                                         at: SCNVector3(x, roadHeight(side * 5.7, rz) + 0.05, rz))
+                    let rock = terrainRock(radius: rng.range(0.18, 0.42))
+                    rock.position = SCNVector3(x, roadHeight(side * 5.7, rz) + 0.02, rz)
                     root.addChildNode(rock)
                 }
-                if row % 2 == 0 {
+                if row % 2 == 0 && !openingMarket {
                     let drum = makeBarrel()
                     drum.position = SCNVector3(side * 7.25, roadHeight(side * 5.7, z - 3), z - 3)
                     root.addChildNode(drum)
@@ -95,7 +77,7 @@ enum WorldBuilder {
                 let z = Float(row) * 12 - 18
                 let dune = ellipsoid(radius: rng.range(6, 10), scale: SCNVector3(1.5, district == 3 ? 0.85 : 0.35, 1),
                                      color: UIColor(red: 0.60, green: 0.40, blue: 0.25, alpha: 1),
-                                     at: SCNVector3(side * rng.range(district == 3 ? 17 : 28, 35), roadHeight(side * 5.7, z) - 1.5, z))
+                                     at: SCNVector3(side * rng.range(40, 52), roadHeight(side * 5.7, z) - 1.5, z))
                 root.addChildNode(dune)
                 if district != 0 {
                     root.addChildNode(cactus(at: SCNVector3(side * rng.range(9, 17), roadHeight(side * 5.7, z), z)))
@@ -155,6 +137,7 @@ enum WorldBuilder {
     }
 
     static func makeJeep() -> SCNNode {
+        if let sculpted = SculptedMesh.load("JeepBody") { return assembledJeep(sculpted) }
         let root = vehicleBody(color: UIColor(red: 0.35, green: 0.40, blue: 0.23, alpha: 1), armored: false)
         root.addChildNode(box(1.75, 0.45, 1.1, UIColor(red: 0.39, green: 0.42, blue: 0.26, alpha: 1), at: SCNVector3(0, 1.05, -0.85)))
         for x: Float in [-0.82, 0.82] {
@@ -163,22 +146,13 @@ enum WorldBuilder {
         }
         root.addChildNode(box(1.75, 0.1, 0.1, dark, at: SCNVector3(0, 2.26, -0.22)))
         root.addChildNode(box(1.75, 0.1, 0.1, dark, at: SCNVector3(0, 2.1, 0.75)))
-        // Folded safari windscreen keeps the driver's face and glasses visible from the gun camera.
-        let windshield = box(1.5, 0.32, 0.04, UIColor(red: 0.55, green: 0.68, blue: 0.70, alpha: 0.15), at: SCNVector3(0, 1.48, -0.42))
-        windshield.eulerAngles.x = -0.65
-        root.addChildNode(windshield)
+        root.addChildNode(foldedWindshield())
         for x: Float in [-0.45, 0.45] { root.addChildNode(box(0.5, 0.65, 0.3, dark, at: SCNVector3(x, 1.35, 0.1))) }
         let driver = makeCharacter(skin: UIColor(red: 0.55, green: 0.34, blue: 0.22, alpha: 1), shirt: UIColor(red: 0.23, green: 0.46, blue: 0.51, alpha: 1))
         driver.name = "playerDriver"
         driver.position = SCNVector3(0.45, 1.5, -0.02)
         root.addChildNode(driver)
-        let turret = SCNNode()
-        turret.name = "turret"
-        turret.position = SCNVector3(0, 1.1, 0.85)
-        turret.addChildNode(cylinder(radius: 0.08, height: 1.15, color: dark, at: SCNVector3(0, 0.5, 0)))
-        turret.addChildNode(box(0.35, 0.24, 1.3, dark, at: SCNVector3(0, 1.1, 0.45)))
-        turret.addChildNode(box(0.12, 0.12, 0.65, UIColor(white: 0.29, alpha: 1), at: SCNVector3(0, 1.1, 1.25)))
-        root.addChildNode(turret)
+        root.addChildNode(gunTurret())
         // Rear spare tire.
         let spare = cylinder(radius: 0.43, height: 0.25, color: dark, at: SCNVector3(0, 1.1, 1.65))
         spare.eulerAngles.x = .pi / 2
@@ -188,7 +162,77 @@ enum WorldBuilder {
         return root
     }
 
+    /// Surfaced body, with the same wheels, lights, driver and gun as the box fallback.
+    private static func assembledJeep(_ body: SCNNode) -> SCNNode {
+        let root = vehicleBody(color: UIColor(red: 0.35, green: 0.40, blue: 0.23, alpha: 1), armored: false, chassis: false)
+        body.name = "sculptedBody"
+        if let paint = body.geometry?.firstMaterial {
+            paint.lightingModel = .physicallyBased
+            paint.metalness.contents = 0.62
+            paint.roughness.contents = texture("gloss")
+            paint.clearCoat.contents = 1
+            paint.clearCoatRoughness.contents = 0.045
+        }
+        root.addChildNode(body)
+        root.addChildNode(foldedWindshield())
+        let driver = makeCharacter(skin: UIColor(red: 0.55, green: 0.34, blue: 0.22, alpha: 1), shirt: UIColor(red: 0.23, green: 0.46, blue: 0.51, alpha: 1))
+        driver.name = "playerDriver"
+        driver.position = SCNVector3(0.42, 1.08, -0.08)
+        root.addChildNode(driver)
+        root.addChildNode(gunTurret())
+        attachSunglasses(to: root)
+        installSuspension(on: root, dustRate: 18)
+        return root
+    }
+
+    private static func foldedWindshield() -> SCNNode {
+        // Folded safari glass keeps the driver's face and glasses visible from the gun camera.
+        let windshield = box(1.5, 0.32, 0.04, UIColor(red: 0.55, green: 0.68, blue: 0.70, alpha: 0.15), at: SCNVector3(0, 1.48, -0.42))
+        windshield.eulerAngles.x = -0.65
+        return windshield
+    }
+
+    private static func gunTurret() -> SCNNode {
+        let turret = SCNNode()
+        turret.name = "turret"
+        turret.position = SCNVector3(0, 1.1, 0.85)
+        let steel = gunMetal
+        let wood = gunWood
+        func alongZ(_ node: SCNNode) -> SCNNode {
+            node.eulerAngles.x = .pi / 2
+            return node
+        }
+        let assembly = SCNNode()
+        let mount = cylinder(radius: 0.09, height: 0.7, color: dark, at: SCNVector3(0, 0.35, 0))
+        (mount.geometry as? SCNCylinder)?.radialSegmentCount = 16
+        assembly.addChildNode(finished(mount, steel))
+        let receiver = box(0.16, 0.14, 0.62, dark, at: SCNVector3(0, 1.02, 0.12))
+        (receiver.geometry as? SCNBox)?.chamferRadius = 0.012
+        assembly.addChildNode(finished(receiver, steel))
+        assembly.addChildNode(finished(box(0.1, 0.035, 0.5, dark, at: SCNVector3(0, 1.11, 0.12)), steel))
+        let shroud = alongZ(cylinder(radius: 0.055, height: 0.72, color: dark, at: SCNVector3(0, 1.05, 0.78)))
+        (shroud.geometry as? SCNCylinder)?.radialSegmentCount = 18
+        assembly.addChildNode(finished(shroud, steel))
+        let barrel = alongZ(cylinder(radius: 0.028, height: 1.15, color: dark, at: SCNVector3(0, 1.05, 0.72)))
+        (barrel.geometry as? SCNCylinder)?.radialSegmentCount = 16
+        assembly.addChildNode(finished(barrel, steel))
+        let brake = alongZ(cylinder(radius: 0.048, height: 0.12, color: dark, at: SCNVector3(0, 1.05, 1.32)))
+        (brake.geometry as? SCNCylinder)?.radialSegmentCount = 16
+        assembly.addChildNode(finished(brake, steel))
+        assembly.addChildNode(finished(box(0.012, 0.07, 0.02, dark, at: SCNVector3(0, 1.12, 1.22)), steel))
+        assembly.addChildNode(finished(box(0.05, 0.04, 0.02, dark, at: SCNVector3(0, 1.14, -0.12)), steel))
+        for side: Float in [-1, 1] {
+            assembly.addChildNode(finished(box(0.025, 0.1, 0.16, dark, at: SCNVector3(side * 0.07, 0.94, -0.16)), wood))
+        }
+        assembly.addChildNode(finished(box(0.18, 0.12, 0.26, rust, at: SCNVector3(0.16, 0.96, 0.02)), steel))
+        let flat = assembly.flattenedClone()
+        flat.name = "gunAssembly"
+        turret.addChildNode(flat)
+        return turret
+    }
+
     static func makePursuer(kind: Int) -> SCNNode {
+        if kind == 0, let bike = importedBike() { return bike }
         if kind != 0, let imported = importedPursuer(kind: kind) { return imported }
         if kind == 0 {
             let root = SCNNode()
@@ -201,7 +245,7 @@ enum WorldBuilder {
             }
             root.addChildNode(box(0.42, 0.4, 1.2, rust, at: SCNVector3(0, 0.8, 0)))
             root.addChildNode(box(0.7, 0.08, 0.1, dark, at: SCNVector3(0, 1.2, -0.65)))
-            let rider = makeCharacter(skin: UIColor(red: 0.62, green: 0.40, blue: 0.27, alpha: 1), shirt: rust)
+            let rider = makeCharacter(skin: UIColor(red: 0.62, green: 0.40, blue: 0.27, alpha: 1), shirt: rust, character: .explorer)
             rider.name = "pursuerRider"
             rider.position = SCNVector3(0, 1.35, 0.1)
             root.addChildNode(rider)
@@ -238,7 +282,7 @@ enum WorldBuilder {
             root.addChildNode(box(0.12, 0.75, 0.12, color, at: SCNVector3(x, 1.5, -0.68)))
         }
         root.addChildNode(box(1.3, 0.55, 0.04, UIColor(red: 0.36, green: 0.48, blue: 0.52, alpha: 0.16), at: SCNVector3(0, 1.53, -0.75)))
-        let driver = makeCharacter(skin: kind == 1 ? UIColor(red: 0.48, green: 0.29, blue: 0.18, alpha: 1) : UIColor(red: 0.67, green: 0.44, blue: 0.29, alpha: 1), shirt: rust)
+        let driver = makeCharacter(skin: kind == 1 ? UIColor(red: 0.48, green: 0.29, blue: 0.18, alpha: 1) : UIColor(red: 0.67, green: 0.44, blue: 0.29, alpha: 1), shirt: rust, character: kind == 1 ? .driver : .grandpa)
         driver.name = "pursuerDriver"
         driver.position = SCNVector3(0.4, 1.23, -0.25)
         root.addChildNode(driver)
@@ -256,6 +300,7 @@ enum WorldBuilder {
 
     static func makeObstacle(kind: Int) -> SCNNode {
         if kind == 1 {
+            if let wreck = importedDebris() { return wreck }
             let wreck = vehicleBody(color: rust, armored: false)
             wreck.addChildNode(box(1.5, 0.55, 1.5, rust, at: SCNVector3(0.1, 1.3, 0)))
             wreck.eulerAngles.y = 0.45
@@ -282,19 +327,37 @@ enum WorldBuilder {
                 root.addChildNode(stripe)
             }
         } else {
-            let rock = SCNNode(geometry: SCNSphere(radius: 0.85))
-            (rock.geometry as? SCNSphere)?.segmentCount = 10
-            rock.geometry?.firstMaterial = surface("sand", tint: sand)
-            rock.scale = SCNVector3(1.4, 0.8, 1)
-            rock.position.y = 0.5
+            let rock = terrainRock(radius: 0.7)
+            rock.scale = SCNVector3(rock.scale.x * 1.15, rock.scale.y * 1.1, rock.scale.z)
+            rock.position.y = 0.02
             root.addChildNode(rock)
         }
         return root
     }
 
-    static func makePedestrian() -> SCNNode {
+    /// Faceted stone shared by the roadside and the boulder obstacles.
+    private static func terrainRock(radius: Float) -> SCNNode {
+        if let model = makeImportedEnvironment(name: "rock") {
+            let copy = model.clone()
+            let scale = radius / 0.42
+            copy.scale = SCNVector3(scale * 1.35, scale * 0.72, scale * 1.05)
+            return copy
+        }
+        return ellipsoid(radius: radius, scale: SCNVector3(1.5, 0.6, 1), color: sand, at: SCNVector3Zero)
+    }
+
+    static func makePedestrian(character: GujaratCharacter? = nil) -> SCNNode {
+        let shirts = [
+            UIColor(red: 0.53, green: 0.61, blue: 0.56, alpha: 1),
+            UIColor(red: 0.62, green: 0.42, blue: 0.28, alpha: 1),
+            UIColor(red: 0.28, green: 0.36, blue: 0.42, alpha: 1)
+        ]
+        let shirt = shirts[pedestrianShirt % shirts.count]
+        let identity = character ?? GujaratCharacter.allCases[pedestrianShirt % GujaratCharacter.allCases.count]
+        pedestrianShirt += 1
+        if let person = loadedCharacter(shirt: shirt, pose: .standing, character: identity) { return person }
         let root = SCNNode()
-        root.addChildNode(box(0.42, 0.72, 0.28, UIColor(red: 0.53, green: 0.61, blue: 0.56, alpha: 1), at: SCNVector3(0, 0.95, 0)))
+        root.addChildNode(box(0.42, 0.72, 0.28, shirt, at: SCNVector3(0, 0.95, 0)))
         for x: Float in [-0.12, 0.12] { root.addChildNode(box(0.12, 0.55, 0.15, dark, at: SCNVector3(x, 0.3, 0))) }
         let head = SCNNode(geometry: SCNSphere(radius: 0.18))
         (head.geometry as? SCNSphere)?.segmentCount = 12
@@ -316,17 +379,19 @@ enum WorldBuilder {
         }
     }
 
-    private static func vehicleBody(color: UIColor, armored: Bool) -> SCNNode {
+    private static func vehicleBody(color: UIColor, armored: Bool, chassis: Bool = true) -> SCNNode {
         let root = SCNNode()
-        root.addChildNode(box(1.85, 0.5, 3.1, color, at: SCNVector3(0, 0.8, 0)))
-        root.addChildNode(box(1.9, 0.16, 0.2, dark, at: SCNVector3(0, 0.62, -1.6)))
+        if chassis {
+            root.addChildNode(box(1.85, 0.5, 3.1, color, at: SCNVector3(0, 0.8, 0)))
+            root.addChildNode(box(1.9, 0.16, 0.2, dark, at: SCNVector3(0, 0.62, -1.6)))
+        }
         for x: Float in [-1, 1] {
             for z: Float in [-1, 1] {
                 let wheel = detailedWheel(radius: armored ? 0.5 : 0.43)
                 wheel.name = "wheel"
                 wheel.position = SCNVector3(x, 0.45, z)
                 root.addChildNode(wheel)
-                root.addChildNode(box(0.12, 0.16, 1.35, rust, at: SCNVector3(x * 0.65, 0.39, z)))
+                if chassis { root.addChildNode(box(0.12, 0.16, 1.35, rust, at: SCNVector3(x * 0.65, 0.39, z))) }
             }
             let headlamp = box(0.25, 0.25, 0.07, warm, at: SCNVector3(x * 0.65, 0.95, -1.57))
             headlamp.name = "headlamp"
@@ -351,8 +416,8 @@ enum WorldBuilder {
     }
 
     /// Articulated seated silhouette with visible facial features at close camera range.
-    private static func makeCharacter(skin: UIColor, shirt: UIColor) -> SCNNode {
-        if let loaded = loadedCharacter(shirt: shirt) { return loaded }
+    private static func makeCharacter(skin: UIColor, shirt: UIColor, character: GujaratCharacter = .driver) -> SCNNode {
+        if let loaded = loadedCharacter(shirt: shirt, character: character) { return loaded }
         let root = SCNNode()
         let torso = box(0.42, 0.52, 0.29, shirt, at: SCNVector3Zero)
         torso.geometry?.firstMaterial = surface("fabric", tint: shirt)
@@ -427,20 +492,39 @@ enum WorldBuilder {
         let p = max(0, min(1, progress))
         let ease = p * p * (3 - 2 * p)
         let step = sin(p * .pi)
-        driver.position = SCNVector3(0.45 * (1 - ease), 1.5 + ease * 0.53 + step * 0.12, -0.02 + ease * 0.67)
+        let rise: Float = rig.isGujarat ? 0.45 : 0.53
+        let travel: Float = rig.isGujarat ? 0.32 : 0.67
+        driver.position = SCNVector3(0.45 * (1 - ease), 1.5 + ease * rise + step * 0.12, -0.02 + ease * travel)
         driver.eulerAngles.y = ease * .pi
         let breath = sin(time * 2.2) * 0.006
         rig.pose(seated: 1 - ease, step: step, breathing: breath)
     }
 
     private static let characterRigs = NSMapTable<SCNNode, CharacterRig>(keyOptions: .weakMemory, valueOptions: .strongMemory)
+    private static var pedestrianShirt = 0
+    private enum CharacterPose { case seated, standing }
     private static var characterAsset: CharacterAsset?
     private static var attemptedCharacterLoad = false
     private static var wheelTemplates: [Int: SCNNode] = [:]
     private static var opaqueMaterials: [String: SCNMaterial] = [:]
     private static var surfaceMaterials: [String: SCNMaterial] = [:]
 
-    private static func loadedCharacter(shirt: UIColor) -> SCNNode? {
+    private static func loadedCharacter(shirt: UIColor, pose: CharacterPose = .seated,
+                                        character: GujaratCharacter = .driver) -> SCNNode? {
+        if let asset = GujaratCharacterAsset.load(character) {
+            let root = SCNNode()
+            let skeleton = asset.instantiate()
+            if pose == .seated {
+                skeleton.position.y = -1.18
+                skeleton.eulerAngles.y = .pi
+            }
+            root.addChildNode(skeleton)
+            let rig = CharacterRig(character: root, skeleton: skeleton)
+            characterRigs.setObject(rig, forKey: root)
+            if pose == .seated { rig.pose(seated: 1, step: 0, breathing: 0) }
+            else { rig.poseStanding() }
+            return root
+        }
         if !attemptedCharacterLoad {
             attemptedCharacterLoad = true
             characterAsset = CharacterAsset.load()
@@ -448,14 +532,121 @@ enum WorldBuilder {
         guard let asset = characterAsset else { return nil }
         let root = SCNNode()
         let skeleton = asset.instantiate(shirt: shirt)
-        skeleton.position.y = -1.18
-        skeleton.eulerAngles.y = .pi
+        if pose == .seated {
+            skeleton.position.y = -1.18
+            skeleton.eulerAngles.y = .pi
+        }
         root.addChildNode(skeleton)
         let rig = CharacterRig(character: root, skeleton: skeleton)
         characterRigs.setObject(rig, forKey: root)
-        rig.pose(seated: 1, step: 0, breathing: 0)
+        if pose == .seated { rig.pose(seated: 1, step: 0, breathing: 0) }
+        else { rig.poseStanding() }
+        attachGrooming(to: root, style: groomCursor % 4, seated: pose == .seated)
+        groomCursor += 1
         return root
     }
+
+    /// Opposite feet and arms. Phase is radians; the pedestrian node faces the travel direction.
+    static func poseWalker(_ node: SCNNode, phase: Float) {
+        characterRigs.object(forKey: node)?.poseWalking(phase: phase)
+    }
+
+    private static var groomCursor = 0
+    private static var hairMaterials: [Int: SCNMaterial] = [:]
+    private static let hairShape: SCNGeometry = {
+        let sphere = SCNSphere(radius: 0.13)
+        sphere.segmentCount = 10
+        return sphere
+    }()
+
+    private static func hairMaterial(style: Int) -> SCNMaterial {
+        if let cached = hairMaterials[style] { return cached }
+        let colors = [
+            UIColor(red: 0.07, green: 0.05, blue: 0.045, alpha: 1),
+            UIColor(red: 0.24, green: 0.13, blue: 0.07, alpha: 1),
+            UIColor(red: 0.40, green: 0.18, blue: 0.09, alpha: 1),
+            UIColor(white: 0.42, alpha: 1)
+        ]
+        let material = SCNMaterial()
+        material.lightingModel = .physicallyBased
+        material.diffuse.contents = colors[style % colors.count]
+        material.roughness.contents = 0.68
+        material.metalness.contents = 0.04
+        hairMaterials[style] = material
+        return material
+    }
+
+    /// Bind-space head features. Seated characters are yawed and dropped before this runs.
+    private static func anchor(_ x: Float, _ y: Float, _ z: Float, seated: Bool) -> SCNVector3 {
+        seated ? SCNVector3(-x, y - 1.18, -z) : SCNVector3(x, y, z)
+    }
+
+    private static func groomPiece(_ scale: SCNVector3, style: Int, at position: SCNVector3) -> SCNNode {
+        let geometry = hairShape.copy() as! SCNGeometry
+        geometry.firstMaterial = hairMaterial(style: style)
+        let node = SCNNode(geometry: geometry)
+        node.scale = scale
+        node.position = position
+        return node
+    }
+
+    private static func attachGrooming(to character: SCNNode, style: Int, seated: Bool) {
+        guard let head = characterRigs.object(forKey: character)?.bones["Head"] else { return }
+        let groom = SCNNode()
+        groom.name = "groom"
+        groom.addChildNode(groomPiece(SCNVector3(1.2, 0.55, 1.05), style: style, at: anchor(0, 1.7, -0.01, seated: seated)))
+        if style == 1 || style == 2 {
+            groom.addChildNode(groomPiece(SCNVector3(1.05, 0.7, 0.55), style: style, at: anchor(0, 1.58, -0.09, seated: seated)))
+        }
+        if style == 2 {
+            groom.addChildNode(groomPiece(SCNVector3(0.55, 0.55, 0.55), style: style, at: anchor(0, 1.66, -0.12, seated: seated)))
+        }
+        if style == 3 {
+            groom.addChildNode(groomPiece(SCNVector3(0.7, 0.45, 0.5), style: style, at: anchor(0, 1.56, 0.075, seated: seated)))
+        }
+        let brow = SCNMaterial()
+        brow.lightingModel = .physicallyBased
+        brow.diffuse.contents = UIColor(red: 0.08, green: 0.06, blue: 0.05, alpha: 1)
+        brow.roughness.contents = 0.8
+        for side: Float in [-1, 1] {
+            let geometry = SCNBox(width: 0.046, height: 0.012, length: 0.012, chamferRadius: 0.002)
+            geometry.firstMaterial = brow
+            let node = SCNNode(geometry: geometry)
+            node.position = anchor(side * 0.038, 1.675, 0.092, seated: seated)
+            node.eulerAngles.z = side * 0.25
+            groom.addChildNode(node)
+        }
+        character.addChildNode(groom)
+        let local = head.simdWorldTransform.inverse * groom.simdWorldTransform
+        groom.removeFromParentNode()
+        head.addChildNode(groom)
+        groom.simdTransform = local
+    }
+
+    private static func finished(_ node: SCNNode, _ material: SCNMaterial) -> SCNNode {
+        node.geometry?.firstMaterial = material
+        return node
+    }
+
+    private static let gunMetal: SCNMaterial = {
+        let material = SCNMaterial()
+        material.lightingModel = .physicallyBased
+        material.diffuse.contents = UIColor(white: 0.62, alpha: 1)
+        material.metalness.contents = 0.92
+        material.roughness.contents = 0.2
+        material.clearCoat.contents = 0.45
+        material.clearCoatRoughness.contents = 0.1
+        return material
+    }()
+
+    private static let gunWood: SCNMaterial = {
+        let material = SCNMaterial()
+        material.lightingModel = .physicallyBased
+        material.diffuse.contents = UIColor(red: 0.28, green: 0.15, blue: 0.07, alpha: 1)
+        material.roughness.contents = 0.62
+        material.metalness.contents = 0.05
+        return material
+    }()
 
     /// Merge static triangles by shared material; preserve only independently animated nodes.
     private static func batchStaticChildren(in root: SCNNode, excluding names: Set<String>) {
@@ -556,7 +747,7 @@ enum WorldBuilder {
             if previous == nil { scene.lightingEnvironment.contents = texture("skyDay") }
             sceneSkyIndices.setObject(NSNumber(value: index), forKey: scene)
         }
-        scene.lightingEnvironment.intensity = CGFloat(0.25 + light * 0.85)
+        scene.lightingEnvironment.intensity = CGFloat(0.45 + light * 1.15)
     }
 
     private static func installSuspension(on root: SCNNode, dustRate: CGFloat) {
@@ -569,7 +760,7 @@ enum WorldBuilder {
         // Imported bodies are already one cached mesh. Keep their vertex colors
         // and shared geometry intact instead of rebuilding them for every spawn.
         if !(root is ImportedVehicleNode) {
-            batchStaticChildren(in: body, excluding: ["turret", "playerDriver", "pursuerDriver", "pursuerRider", "headlight", "headlamp"])
+            batchStaticChildren(in: body, excluding: ["turret", "playerDriver", "pursuerDriver", "pursuerRider", "headlight", "headlamp", "sculptedBody"])
         }
         root.addChildNode(body)
         let emitter = SCNNode()
@@ -649,37 +840,36 @@ enum WorldBuilder {
         let fuel = box(0.4, 0.63, 0.2, rust, at: SCNVector3(-0.62, 1.15, 1.62))
         root.addChildNode(fuel)
         root.addChildNode(box(0.19, 0.09, 0.13, dark, at: SCNVector3(-0.62, 1.49, 1.62)))
-        if let driver = root.childNode(withName: "playerDriver", recursively: true) {
-            let glasses = SCNNode()
-            glasses.name = "sunglasses"
-            for side: Float in [-1, 1] {
-                glasses.addChildNode(box(0.16, 0.09, 0.035, dark, at: SCNVector3(side * 0.087, 0.535, -0.192)))
-                let lens = box(0.135, 0.063, 0.006, UIColor(red: 0.13, green: 0.22, blue: 0.25, alpha: 1), at: SCNVector3(side * 0.087, 0.535, -0.214))
-                lens.name = "sunglassLens"
-                lens.categoryBitMask = 2
-                let glass = SCNMaterial()
-                glass.lightingModel = .physicallyBased
-                glass.diffuse.contents = UIColor(red: 0.08, green: 0.19, blue: 0.23, alpha: 1)
-                glass.metalness.contents = 0.95
-                glass.roughness.contents = 0.08
-                lens.geometry?.firstMaterial = glass
-                glasses.addChildNode(lens)
-                glasses.addChildNode(box(0.018, 0.025, 0.19, dark, at: SCNVector3(side * 0.17, 0.55, -0.1)))
-            }
-            glasses.addChildNode(box(0.05, 0.018, 0.025, dark, at: SCNVector3(0, 0.55, -0.21)))
-            driver.addChildNode(glasses)
-            if let rig = characterRigs.object(forKey: driver), let head = rig.bones["Head"] {
-                let local = head.simdWorldTransform.inverse * glasses.simdWorldTransform
-                glasses.removeFromParentNode()
-                head.addChildNode(glasses)
-                glasses.simdTransform = local
-            }
+        attachSunglasses(to: root)
+    }
+
+    private static func attachSunglasses(to root: SCNNode) {
+        guard let driver = root.childNode(withName: "playerDriver", recursively: true) else { return }
+        // The supplied driver wears the source pack's head-bound goggles and reflection lenses.
+        if driver.childNode(withName: "sunglassLens", recursively: true) != nil { return }
+        let glasses = SCNNode()
+        glasses.name = "sunglasses"
+        for side: Float in [-1, 1] {
+            glasses.addChildNode(box(0.16, 0.09, 0.035, dark, at: SCNVector3(side * 0.087, 0.535, -0.192)))
+            let lens = box(0.135, 0.063, 0.006, UIColor(red: 0.13, green: 0.22, blue: 0.25, alpha: 1), at: SCNVector3(side * 0.087, 0.535, -0.214))
+            lens.name = "sunglassLens"
+            lens.categoryBitMask = 2
+            let glass = SCNMaterial()
+            glass.lightingModel = .physicallyBased
+            glass.diffuse.contents = UIColor(red: 0.08, green: 0.19, blue: 0.23, alpha: 1)
+            glass.metalness.contents = 0.95
+            glass.roughness.contents = 0.08
+            lens.geometry?.firstMaterial = glass
+            glasses.addChildNode(lens)
+            glasses.addChildNode(box(0.018, 0.025, 0.19, dark, at: SCNVector3(side * 0.17, 0.55, -0.1)))
         }
-        if let gun = root.childNode(withName: "turret", recursively: true) {
-            for z: Float in [1.05, 1.17, 1.29, 1.41] {
-                gun.addChildNode(box(0.16, 0.16, 0.035, dark, at: SCNVector3(0, 1.1, z)))
-            }
-            gun.addChildNode(box(0.25, 0.23, 0.4, rust, at: SCNVector3(0.26, 1.05, 0.3)))
+        glasses.addChildNode(box(0.05, 0.018, 0.025, dark, at: SCNVector3(0, 0.55, -0.21)))
+        driver.addChildNode(glasses)
+        if let rig = characterRigs.object(forKey: driver), let head = rig.bones["Head"] {
+            let local = head.simdWorldTransform.inverse * glasses.simdWorldTransform
+            glasses.removeFromParentNode()
+            head.addChildNode(glasses)
+            glasses.simdTransform = local
         }
     }
 
@@ -692,6 +882,52 @@ enum WorldBuilder {
             environmentAsset = ImportedEnvironmentAsset.load()
         }
         return environmentAsset?.instantiate(name: name)
+    }
+
+    private static func placeLot(side: Float, z: Float, street: Float, model: Int, ruined: Bool,
+                                 rng: inout SeededRandom, roadHeight: (Float, Float) -> Float, into root: SCNNode) {
+        guard let building = makeImportedBuilding(type: model, ruined: ruined) else { return }
+        let bounds = building.boundingBox
+        let depth = bounds.max.z - bounds.min.z
+        let width = bounds.max.x - bounds.min.x
+        let x = side * (street + depth / 2 + rng.range(0, 0.9))
+        var low: Float = .greatestFiniteMagnitude
+        var high: Float = -.greatestFiniteMagnitude
+        for dz in [-width / 2, width / 2] {
+            let h = roadHeight(side * 5.7, z + dz)
+            low = min(low, h); high = max(high, h)
+        }
+        let base = high + 0.025
+        let foundationHeight = max(0.18, high - low + 0.25)
+        root.addChildNode(box(depth + 0.1, foundationHeight, width + 0.1, sand,
+                              at: SCNVector3(x, base - foundationHeight / 2, z)))
+        building.position = SCNVector3(x, base, z)
+        building.eulerAngles.y = side * .pi / 2
+        root.addChildNode(building)
+        if ruined, street < 12, let fence = makeImportedEnvironment(name: "fence_open") {
+            fence.position = SCNVector3(side * (street - 0.4), roadHeight(side * 5.7, z + 3) - 0.03, z + 3)
+            fence.eulerAngles.y = side * .pi / 2
+            root.addChildNode(fence)
+        }
+    }
+
+    /// Flat-roof adobe compounds sit behind the street wall, in the same plaster palette.
+    private static func placeDesertHome(side: Float, z: Float, street: Float, model: Int,
+                                        roadHeight: (Float, Float) -> Float, into root: SCNNode) {
+        let names = ["desert_bg01", "desert_bg02", "desert_bg03", "desert_bg04"]
+        guard let building = makeImportedEnvironment(name: names[model % names.count]) else { return }
+        building.name = "importedBuilding"
+        let bounds = building.boundingBox
+        let depth = bounds.max.z - bounds.min.z
+        let width = bounds.max.x - bounds.min.x
+        let x = side * (street + depth / 2)
+        var high: Float = -.greatestFiniteMagnitude
+        for dz in [-width / 2, width / 2] {
+            high = max(high, roadHeight(side * 5.7, z + dz))
+        }
+        building.position = SCNVector3(x, high + 0.02, z)
+        building.eulerAngles.y = side * .pi / 2
+        root.addChildNode(building)
     }
 
     private static func makeImportedBuilding(type: Int, ruined: Bool) -> SCNNode? {
@@ -741,10 +977,10 @@ enum WorldBuilder {
         guard let asset = vehicleAssets[name] else { return nil }
         let root = asset.instantiate()
         root.name = kind == 1 ? "rallyCar" : "armoredSUV"
-        let driver = makeCharacter(skin: UIColor(red: 0.55, green: 0.36, blue: 0.24, alpha: 1), shirt: rust)
+        let driver = makeCharacter(skin: UIColor(red: 0.55, green: 0.36, blue: 0.24, alpha: 1), shirt: rust, character: kind == 1 ? .driver : .grandpa)
         driver.name = "pursuerDriver"
-        driver.position = SCNVector3(0.35, kind == 1 ? 1.03 : 1.25, -0.2)
-        driver.scale = SCNVector3(0.8, 0.8, 0.8)
+        driver.position = SCNVector3(0.35, 1.02, -0.15)
+        driver.scale = SCNVector3(0.78, 0.78, 0.78)
         root.addChildNode(driver)
         // The original curved vehicle body and glazing remain the visible silhouette.
         // Only working light sources and the animated occupant are added.
@@ -759,7 +995,7 @@ enum WorldBuilder {
             light.light?.attenuationStartDistance = 2
             light.light?.attenuationEndDistance = 38
             light.light?.intensity = 0
-            light.position = SCNVector3(side * 0.6, kind == 1 ? 0.65 : 0.85, -1.8)
+            light.position = SCNVector3(side * 0.55, 0.72, -1.92)
             light.eulerAngles.x = -0.13
             root.addChildNode(light)
             let lamp = box(0.22, 0.11, 0.025, warm, at: light.position)
@@ -769,6 +1005,46 @@ enum WorldBuilder {
         }
         installSuspension(on: root, dustRate: 11)
         return root
+    }
+
+    private static func importedBike() -> SCNNode? {
+        if vehicleAssets["bike"] == nil { vehicleAssets["bike"] = ImportedVehicleAsset.load(name: "bike") }
+        guard let asset = vehicleAssets["bike"] else { return nil }
+        let root = asset.instantiate()
+        root.name = "pursuitBike"
+        let rider = makeCharacter(skin: UIColor(red: 0.62, green: 0.40, blue: 0.27, alpha: 1), shirt: rust, character: .explorer)
+        rider.name = "pursuerRider"
+        rider.position = SCNVector3(0, 1.04, 0.16)
+        rider.scale = SCNVector3(0.88, 0.88, 0.88)
+        root.addChildNode(rider)
+        let headlamp = box(0.16, 0.12, 0.04, warm, at: SCNVector3(0, 0.9, -0.78))
+        headlamp.name = "headlamp"
+        headlamp.geometry?.firstMaterial = headlamp.geometry?.firstMaterial?.copy() as? SCNMaterial
+        root.addChildNode(headlamp)
+        let light = SCNNode()
+        light.name = "headlight"
+        light.light = SCNLight()
+        light.light?.type = .spot
+        light.light?.color = warm
+        light.light?.spotInnerAngle = 18
+        light.light?.spotOuterAngle = 36
+        light.light?.attenuationEndDistance = 30
+        light.light?.intensity = 0
+        light.position = SCNVector3(0, 0.9, -0.86)
+        light.eulerAngles.x = -0.13
+        root.addChildNode(light)
+        installSuspension(on: root, dustRate: 7)
+        return root
+    }
+
+    private static func importedDebris() -> SCNNode? {
+        if vehicleAssets["hatchback-sports"] == nil {
+            vehicleAssets["hatchback-sports"] = ImportedVehicleAsset.load(name: "hatchback-sports")
+        }
+        guard let asset = vehicleAssets["hatchback-sports"] else { return nil }
+        let wreck = asset.instantiate()
+        wreck.eulerAngles = SCNVector3(0.22, 0.55, 0.38)
+        return wreck
     }
 
     private static func fenderArch(color: UIColor) -> SCNGeometry {
@@ -878,7 +1154,43 @@ enum WorldBuilder {
     }
 
     /// Deterministic, shared 512 px surfaces: no asset downloads or per-chunk image allocation.
-    private static func texture(_ kind: String) -> UIImage {
+    private static var sceneryCache: [String: SCNMaterial] = [:]
+
+    /// One plaster, wood, or sand material shared by every imported building.
+    fileprivate static func sceneryMaterial(_ kind: String) -> SCNMaterial {
+        if let cached = sceneryCache[kind] { return cached }
+        let material = SCNMaterial()
+        material.lightingModel = .physicallyBased
+        material.diffuse.contents = texture(kind)
+        material.diffuse.wrapS = .repeat
+        material.diffuse.wrapT = .repeat
+        material.roughness.contents = kind == "sand" ? 0.96 : 0.9
+        material.metalness.contents = 0
+        material.shaderModifiers = [.geometry: """
+        #pragma body
+        float3 p = _geometry.position.xyz;
+        float3 n = abs(_geometry.normal);
+        float2 uv = p.xy;
+        if (n.x >= n.y && n.x >= n.z) uv = p.zy;
+        else if (n.y >= n.z) uv = p.xz;
+        _geometry.texcoords[0] = uv * 0.55;
+        """]
+        sceneryCache[kind] = material
+        return material
+    }
+
+    fileprivate static func windowGlass() -> SCNMaterial {
+        if let cached = sceneryCache["window"] { return cached }
+        let material = SCNMaterial()
+        material.lightingModel = .physicallyBased
+        material.diffuse.contents = UIColor(red: 0.12, green: 0.16, blue: 0.17, alpha: 1)
+        material.roughness.contents = 0.14
+        material.metalness.contents = 0.22
+        sceneryCache["window"] = material
+        return material
+    }
+
+    fileprivate static func texture(_ kind: String) -> UIImage {
         if let cached = textureCache[kind] { return cached }
         let sky = kind.hasPrefix("sky")
         let size = CGSize(width: sky ? 1024 : 512, height: 512)
@@ -951,6 +1263,37 @@ enum WorldBuilder {
                     }
                 }
                 context.strokePath()
+            }
+            if kind == "gloss" {
+                UIColor(white: 0.18, alpha: 1).setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+                for _ in 0..<1600 {
+                    UIColor(white: CGFloat(rng.range(0.08, 0.32)), alpha: 1).setFill()
+                    let width = CGFloat(rng.range(1, 3))
+                    context.fill(CGRect(x: CGFloat(rng.range(0, 512)), y: CGFloat(rng.range(0, 512)), width: width, height: width))
+                }
+                return
+            }
+            if kind == "plaster" || kind == "wood" {
+                UIColor(white: kind == "wood" ? 0.78 : 0.9, alpha: 1).setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+                for _ in 0..<2400 {
+                    UIColor(white: CGFloat(rng.range(0.55, 1)), alpha: CGFloat(rng.range(0.15, 0.45))).setFill()
+                    let width = CGFloat(rng.range(1, kind == "wood" ? 2 : 4))
+                    let height = kind == "wood" ? CGFloat(rng.range(8, 28)) : width
+                    context.fill(CGRect(x: CGFloat(rng.range(0, 512)), y: CGFloat(rng.range(0, 512)), width: width, height: height))
+                }
+                context.setStrokeColor(UIColor(white: 0.25, alpha: kind == "wood" ? 0.28 : 0.18).cgColor)
+                context.setLineWidth(kind == "wood" ? 1.4 : 0.8)
+                let lines = kind == "wood" ? 28 : 7
+                for _ in 0..<lines {
+                    let x = CGFloat(rng.range(0, 512))
+                    let y = CGFloat(rng.range(0, 512))
+                    context.move(to: CGPoint(x: x, y: y))
+                    context.addLine(to: CGPoint(x: x + CGFloat(rng.range(-6, 8)), y: y + CGFloat(rng.range(20, 90))))
+                }
+                context.strokePath()
+                return
             }
             if kind == "masonry" {
                 context.setStrokeColor(UIColor(white: 0.32, alpha: 0.4).cgColor)
@@ -1171,7 +1514,7 @@ private final class CharacterAsset {
             let skinMaterial = SCNMaterial()
             skinMaterial.lightingModel = .physicallyBased
             skinMaterial.diffuse.contents = mesh.name.contains("Face.001") ? eyes : mesh.face ? UIColor(white: 0.08, alpha: 1) : skin
-            skinMaterial.roughness.contents = mesh.face ? 0.45 : 0.8
+            skinMaterial.roughness.contents = mesh.face ? 0.42 : 0.58
             let shirtMaterial = SCNMaterial()
             shirtMaterial.lightingModel = .physicallyBased
             shirtMaterial.diffuse.contents = shirt
@@ -1202,12 +1545,25 @@ private final class CharacterRig {
     let bones: [String: SCNNode]
     let restPositions: [String: SIMD3<Float>]
     let restOrientations: [String: simd_quatf]
+    let isGujarat: Bool
 
     init(character: SCNNode, skeleton: SCNNode) {
         self.character = character
         self.skeleton = skeleton
+        isGujarat = skeleton.name?.hasPrefix("gujarat_") == true
         var bones: [String: SCNNode] = [:]
         skeleton.enumerateChildNodes { node, _ in if let name = node.name { bones[name] = node } }
+        // Keep the delivered 22-bone names, while sharing the existing two-bone limb solver.
+        if isGujarat {
+            bones["Head"] = bones["head"]
+            for (source, suffix) in [("L", "l"), ("R", "r")] {
+                for (canonical, delivered) in [("upperarm", "upper_arm"), ("lowerarm", "forearm"),
+                                                ("hand", "hand"), ("thigh", "thigh"),
+                                                ("calf", "shin"), ("foot", "foot")] {
+                    bones[canonical + "_" + suffix] = bones[delivered + "." + source]
+                }
+            }
+        }
         self.bones = bones
         restPositions = bones.mapValues { skeleton.simdConvertPosition(.zero, from: $0) }
         let inverse = skeleton.simdWorldOrientation.inverse
@@ -1221,10 +1577,15 @@ private final class CharacterRig {
         }
         let kneeLift = step * 0.22
         for (suffix, side): (String, Float) in [("l", -1), ("r", 1)] {
-            let foot = point(side * 0.12, -1.12 + seated * 0.46 + (side < 0 ? kneeLift : 0), -0.05 - seated * 0.39)
+            let standingAnkle: Float = isGujarat ? -1.05 : -1.12
+            let sittingLift: Float = isGujarat ? 0.39 : 0.46
+            let foot = point(side * 0.12, standingAnkle + seated * sittingLift + (side < 0 ? kneeLift : 0), -0.05 - seated * 0.39)
             solve(upper: "thigh_" + suffix, lower: "calf_" + suffix, tip: "foot_" + suffix, target: foot, bend: SIMD3(0, 0, 1))
             orient("foot_" + suffix, toward: restOrientations["foot_" + suffix])
-            let grip = point(side * 0.22, -0.02 + (1 - seated) * 0.11 + breathing, -0.45)
+            // The new driver's narrow gun grip meets the turret's rear handles at (±.085, 2.04, .69).
+            let gripX: Float = isGujarat ? 0.085 + seated * 0.135 : 0.22
+            let gripZ: Float = isGujarat ? -0.39 - seated * 0.06 : -0.45
+            let grip = point(side * gripX, -0.02 + (1 - seated) * 0.11 + breathing, gripZ)
             solve(upper: "upperarm_" + suffix, lower: "lowerarm_" + suffix, tip: "hand_" + suffix, target: grip, bend: SIMD3(side, -1, 0))
         }
     }
@@ -1242,6 +1603,7 @@ private final class CharacterRig {
         let origin = skeleton.simdConvertPosition(.zero, from: a)
         let lengthA = simd_length(pb - pa), lengthB = simd_length(pc - pb)
         let delta = target - origin
+        guard simd_length_squared(delta) > 0.000001 else { return }
         let distance = min(lengthA + lengthB - 0.005, max(0.04, simd_length(delta)))
         let direction = simd_normalize(delta)
         let along = (lengthA * lengthA - lengthB * lengthB + distance * distance) / (2 * distance)
@@ -1255,6 +1617,39 @@ private final class CharacterRig {
         let second = simd_quatf(from: simd_normalize(pc - pb), to: simd_normalize(target - lowerOrigin)) * qb
         orient(lower, toward: second)
         _ = c
+    }
+
+    /// A crossing step. Left and right swing in opposite directions, with a weight dip.
+    func poseWalking(phase: Float) {
+        guard let character else { return }
+        func point(_ x: Float, _ y: Float, _ z: Float) -> SIMD3<Float> {
+            skeleton.simdConvertPosition(SIMD3(x, y, z), from: character)
+        }
+        skeleton.position.y = -0.016 * abs(cos(phase))
+        let swing = sin(phase)
+        for (suffix, side): (String, Float) in [("l", 1), ("r", -1)] {
+            let step = (suffix == "l" ? 1 : -1) * swing
+            let foot = point(side * 0.12, (isGujarat ? 0.13 : 0.02) + max(0, step) * 0.16, 0.04 + step * 0.34)
+            solve(upper: "thigh_" + suffix, lower: "calf_" + suffix, tip: "foot_" + suffix, target: foot, bend: SIMD3(0, 0, 1))
+            orient("foot_" + suffix, toward: restOrientations["foot_" + suffix])
+            let hand = point(side * 0.2, 0.8 - abs(step) * 0.08, -step * 0.28)
+            solve(upper: "upperarm_" + suffix, lower: "lowerarm_" + suffix, tip: "hand_" + suffix, target: hand, bend: SIMD3(0, 0, -1))
+        }
+    }
+
+    /// Arms down and feet planted. Left bones live on +X until the seated yaw flips them.
+    func poseStanding() {
+        guard let character else { return }
+        func point(_ x: Float, _ y: Float, _ z: Float) -> SIMD3<Float> {
+            skeleton.simdConvertPosition(SIMD3(x, y, z), from: character)
+        }
+        for (suffix, side): (String, Float) in [("l", 1), ("r", -1)] {
+            let foot = point(side * 0.11, isGujarat ? 0.13 : 0.02, 0.05)
+            solve(upper: "thigh_" + suffix, lower: "calf_" + suffix, tip: "foot_" + suffix, target: foot, bend: SIMD3(0, 0, 1))
+            orient("foot_" + suffix, toward: restOrientations["foot_" + suffix])
+            let hand = point(side * 0.24, 0.72, 0.05)
+            solve(upper: "upperarm_" + suffix, lower: "lowerarm_" + suffix, tip: "hand_" + suffix, target: hand, bend: SIMD3(0, 0, -1))
+        }
     }
 }
 
@@ -1270,6 +1665,46 @@ private final class ImportedVehicleAsset {
     let parts: [Part]
     let geometries: [SCNGeometry]
 
+    private static func paintMaterial() -> SCNMaterial {
+        let material = SCNMaterial()
+        material.lightingModel = .physicallyBased
+        material.diffuse.contents = UIColor.white
+        material.metalness.contents = 0.58
+        material.roughness.contents = WorldBuilder.texture("gloss")
+        material.clearCoat.contents = 1
+        material.clearCoatRoughness.contents = 0.04
+        return material
+    }
+
+    private static func rubberMaterial() -> SCNMaterial {
+        let material = SCNMaterial()
+        material.lightingModel = .physicallyBased
+        material.diffuse.contents = UIColor.white
+        material.roughness.contents = 0.9
+        material.metalness.contents = 0.04
+        material.shaderModifiers = [.surface: """
+        #pragma body
+        float luma = dot(_surface.diffuse.rgb, float3(0.3, 0.59, 0.11));
+        float metal = smoothstep(0.05, 0.28, luma);
+        _surface.roughness = mix(0.94, 0.18, metal);
+        _surface.metalness = metal * 0.9;
+        """]
+        return material
+    }
+
+    private static func glassMaterial() -> SCNMaterial {
+        let material = SCNMaterial()
+        material.lightingModel = .physicallyBased
+        material.diffuse.contents = UIColor(red: 0.7, green: 0.82, blue: 0.86, alpha: 1)
+        material.transparency = 0.32
+        material.metalness.contents = 0.08
+        material.roughness.contents = 0.02
+        material.blendMode = .alpha
+        material.isDoubleSided = true
+        material.fresnelExponent = 1.6
+        return material
+    }
+
     static func load(name: String) -> ImportedVehicleAsset? {
         func resource(_ name: String, _ ext: String) -> URL? {
             Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Assets") ?? Bundle.main.url(forResource: name, withExtension: ext)
@@ -1283,11 +1718,9 @@ private final class ImportedVehicleAsset {
 
     private init(parts: [Part], data: Data, colors: Data) {
         self.parts = parts
-        let material = SCNMaterial()
-        material.lightingModel = .physicallyBased
-        material.diffuse.contents = UIColor.white
-        material.roughness.contents = 0.58
-        material.metalness.contents = 0.24
+        let paint = Self.paintMaterial()
+        let rubber = Self.rubberMaterial()
+        let glass = Self.glassMaterial()
         geometries = parts.map { part in
             let packed = data.subdata(in: part.offset..<(part.offset + part.count * 32))
             func source(_ semantic: SCNGeometrySource.Semantic, offset: Int, components: Int) -> SCNGeometrySource {
@@ -1299,7 +1732,7 @@ private final class ImportedVehicleAsset {
             let colorData = colors.subdata(in: colorOffset..<(colorOffset + part.count * 16))
             let colorSource = SCNGeometrySource(data: colorData, semantic: .color, vectorCount: part.count, usesFloatComponents: true, componentsPerVector: 4, bytesPerComponent: 4, dataOffset: 0, dataStride: 16)
             let geometry = SCNGeometry(sources: [source(.vertex, offset: 0, components: 3), source(.normal, offset: 12, components: 3), source(.texcoord, offset: 24, components: 2), colorSource], elements: [element])
-            geometry.firstMaterial = material
+            geometry.firstMaterial = part.name == "glass" ? glass : part.name.hasPrefix("wheel") ? rubber : paint
             return geometry
         }
     }
@@ -1311,6 +1744,8 @@ private final class ImportedVehicleAsset {
             node.position = SCNVector3(part.position[0], part.position[1], part.position[2])
             if part.name.hasPrefix("wheel-") && part.name != "wheel-back" {
                 node.name = "wheel"
+            } else if part.name == "glass" {
+                node.name = "vehicleGlass"
             } else {
                 node.name = part.name == "body" ? "importedVehicleMesh" : "importedSpareTire"
             }
@@ -1332,7 +1767,35 @@ private final class VehicleMotion {
     var pitch: Float = 0
 }
 
-/// Shared CC0 architectural geometry, with the original window faces kept as a separate mesh.
+/// Vertex-colored shell for the player jeep. Wheels, lights and the gun stay separate.
+private enum SculptedMesh {
+    static func load(_ resource: String) -> SCNNode? {
+        func url(_ ext: String) -> URL? {
+            Bundle.main.url(forResource: resource, withExtension: ext, subdirectory: "Assets")
+                ?? Bundle.main.url(forResource: resource, withExtension: ext)
+        }
+        guard let jsonURL = url("json"), let binaryURL = url("bin"),
+              let raw = try? JSONSerialization.jsonObject(with: Data(contentsOf: jsonURL)) as? [String: Any],
+              let count = (raw["count"] as? Int) ?? (raw["count"] as? NSNumber)?.intValue,
+              count > 0, count.isMultiple(of: 3),
+              let data = try? Data(contentsOf: binaryURL), data.count == count * 40 else { return nil }
+        func source(_ semantic: SCNGeometrySource.Semantic, offset: Int, components: Int) -> SCNGeometrySource {
+            SCNGeometrySource(data: data, semantic: semantic, vectorCount: count, usesFloatComponents: true,
+                              componentsPerVector: components, bytesPerComponent: 4, dataOffset: offset, dataStride: 40)
+        }
+        let element = SCNGeometryElement(data: nil, primitiveType: .triangles, primitiveCount: count / 3, bytesPerIndex: 0)
+        let geometry = SCNGeometry(sources: [source(.vertex, offset: 0, components: 3), source(.normal, offset: 12, components: 3), source(.color, offset: 24, components: 4)], elements: [element])
+        let material = SCNMaterial()
+        material.lightingModel = .physicallyBased
+        material.diffuse.contents = UIColor.white
+        material.roughness.contents = 0.55
+        material.metalness.contents = 0.2
+        geometry.firstMaterial = material
+        return SCNNode(geometry: geometry)
+    }
+}
+
+/// Modeled town shells. Window faces stay a separate mesh so they can glow at night.
 @MainActor
 private final class ImportedEnvironmentAsset {
     struct Part: Decodable { let name: String; let offset: Int; let count: Int }
@@ -1352,11 +1815,6 @@ private final class ImportedEnvironmentAsset {
 
     private init(models: [Model], data: Data) {
         self.models = Dictionary(uniqueKeysWithValues: models.map { ($0.name, $0) })
-        let material = SCNMaterial()
-        material.lightingModel = .physicallyBased
-        material.diffuse.contents = UIColor.white
-        material.roughness.contents = 0.93
-        material.metalness.contents = 0
         geometries = Dictionary(uniqueKeysWithValues: models.map { model in
             let parts = model.parts.map { part -> SCNGeometry in
                 let packed = data.subdata(in: part.offset..<(part.offset + part.count * 40))
@@ -1364,8 +1822,17 @@ private final class ImportedEnvironmentAsset {
                     SCNGeometrySource(data: packed, semantic: semantic, vectorCount: part.count, usesFloatComponents: true, componentsPerVector: components, bytesPerComponent: 4, dataOffset: offset, dataStride: 40)
                 }
                 let element = SCNGeometryElement(data: nil, primitiveType: .triangles, primitiveCount: part.count / 3, bytesPerIndex: 0)
-                let geometry = SCNGeometry(sources: [source(.vertex, offset: 0, components: 3), source(.normal, offset: 12, components: 3), source(.color, offset: 24, components: 4)], elements: [element])
-                geometry.firstMaterial = material
+                var sources = [
+                    source(.vertex, offset: 0, components: 3),
+                    source(.normal, offset: 12, components: 3),
+                    source(.color, offset: 24, components: 4)
+                ]
+                if part.name != "window" {
+                    sources.append(SCNGeometrySource(textureCoordinates: [CGPoint](repeating: .zero, count: part.count)))
+                }
+                let geometry = SCNGeometry(sources: sources, elements: [element])
+                let kind = model.name.hasPrefix("fence") ? "wood" : model.name == "rock" ? "sand" : "plaster"
+                geometry.firstMaterial = part.name == "window" ? WorldBuilder.windowGlass() : WorldBuilder.sceneryMaterial(kind)
                 return geometry
             }
             return (model.name, parts)
@@ -1377,22 +1844,9 @@ private final class ImportedEnvironmentAsset {
         let root = SCNNode()
         root.name = "importedEnvironment"
         for (index, part) in model.parts.enumerated() {
-            if part.name == "window" {
-                let geometry = parts[index].copy() as! SCNGeometry
-                let material = SCNMaterial()
-                material.lightingModel = .physicallyBased
-                material.diffuse.contents = UIColor(red: 0.12, green: 0.19, blue: 0.20, alpha: 1)
-                material.roughness.contents = 0.2
-                material.metalness.contents = 0.35
-                geometry.firstMaterial = material
-                let node = SCNNode(geometry: geometry)
-                node.name = "litWindow"
-                root.addChildNode(node)
-            } else {
-                let node = SCNNode(geometry: parts[index])
-                node.name = "importedBuildingMesh"
-                root.addChildNode(node)
-            }
+            let node = SCNNode(geometry: parts[index])
+            node.name = part.name == "window" ? "litWindow" : "importedBuildingMesh"
+            root.addChildNode(node)
         }
         let low = model.bounds[0], high = model.bounds[1]
         root.boundingBox = (SCNVector3(low[0], low[1], low[2]), SCNVector3(high[0], high[1], high[2]))

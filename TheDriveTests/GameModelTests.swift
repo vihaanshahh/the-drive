@@ -545,6 +545,25 @@ final class GameModelTests: XCTestCase {
         add(attachment)
     }
 
+    func testPursuitBikeUsesTheImportedRiderAndWheels() throws {
+        let bike = WorldBuilder.makePursuer(kind: 0)
+        let suspension = try XCTUnwrap(bike.childNode(withName: "suspension", recursively: false))
+        XCTAssertNotNil(suspension.childNode(withName: "importedVehicleMesh", recursively: false))
+        XCTAssertNotNil(suspension.childNode(withName: "pursuerRider", recursively: true))
+        let wheels = bike.childNodes.filter { $0.name == "wheel" }
+        XCTAssertEqual(wheels.count, 2)
+        let front = try XCTUnwrap(wheels.first { $0.position.z < 0 })
+        XCTAssertEqual(wheels.filter { $0.position.z > 0 }.count, 1)
+        WorldBuilder.animateVehicle(bike, time: 0, speed: 16, steering: 0.7)
+        for frame in 1...20 {
+            WorldBuilder.animateVehicle(bike, time: Float(frame) / 60, speed: 16, steering: 0.7)
+        }
+        XCTAssertLessThan(front.eulerAngles.y, 0)
+        XCTAssertNotEqual(front.eulerAngles.x, 0)
+        let axle = front.convertVector(SCNVector3(1, 0, 0), to: bike)
+        XCTAssertGreaterThan(axle.z, 0)
+    }
+
     func testImportedPursuersHaveSeparateSteeringAndSpinningWheels() throws {
         for kind in [1, 2] {
             let vehicle = WorldBuilder.makePursuer(kind: kind)

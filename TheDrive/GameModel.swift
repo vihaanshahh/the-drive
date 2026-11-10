@@ -17,6 +17,11 @@ final class GameModel: ObservableObject {
     @Published private(set) var cycleProgress = 0.0
     var simulationClock: Double { elapsed }
     @Published private(set) var started = false
+    @Published private(set) var isInCutscene = false
+    @Published private(set) var openingProgress = 0.0
+    @Published private(set) var runCash = 0
+    @Published private(set) var magazineCapacity = 24
+    let garage: GarageProgress
     @Published private(set) var seed: UInt64 = 1
     @Published private(set) var speed = 72.0
     @Published private(set) var kills = 0
@@ -85,6 +90,14 @@ final class GameModel: ObservableObject {
     private var firing = false
     private var lastTime: TimeInterval?
     private var meters: Double = 0
+    private var runStartDistance = 0.0
+    private var titleClock = 0.0
+    private var openingClock = 0.0
+    private let openingDuration = 7.0
+    private var marketplace: SCNNode?
+    private var armorTier = 0
+    private var engineTier = 0
+    private var drivingVelocity = 20.0
     private var elapsed = 0.0
     private var dayCycleOffset = 0.0
     private var daylight = DayCycle.sample(elapsed: 0)
@@ -121,8 +134,9 @@ final class GameModel: ObservableObject {
         var suspension = RoadSuspension()
     }
 
-    init(seed: UInt64? = nil) {
+    init(seed: UInt64? = nil, garage: GarageProgress? = nil) {
         requestedSeed = seed
+        self.garage = garage ?? GarageProgress(defaults: nil)
         scene.rootNode.addChildNode(world)
         cameraNode.camera = SCNCamera()
         cameraNode.camera?.zFar = 250
@@ -156,7 +170,42 @@ final class GameModel: ObservableObject {
         resetWorld(newSeed: true)
     }
 
-    func start() { started = true; isPaused = false; scene.isPaused = false; lastTime = nil }
+    func start() {
+        guard !started else { return }
+        let fromOpening = isInCutscene
+        runStartDistance = meters
+        if !fromOpening {
+            jeep.position = SCNVector3(0, RoadSurface.sample(distance: meters, x: 0, seed: seed).height, 0)
+            jeep.eulerAngles = SCNVector3Zero
+            targetX = 0
+        }
+        armorTier = garage.level(for: .armor)
+        engineTier = garage.level(for: .engine)
+        magazineCapacity = 24 + garage.level(for: .magazine) * 4
+        ammo = magazineCapacity
+        speed = 72 + Double(engineTier * 4)
+        drivingVelocity = speed / 3.6
+        started = true; isInCutscene = false; openingProgress = 1
+        isPaused = false; scene.isPaused = false; lastTime = nil
+        steering = 0; firing = false
+        // The handover starts from the cinematic camera and settles into the driving view.
+        updateCamera(dt: fromOpening ? 0 : 1)
+    }
+
+    func beginOpening() {
+        guard !started, !isInCutscene, !isGameOver else { return }
+        isInCutscene = true; openingProgress = 0; openingClock = 0
+        titleClock = 0; meters = 0; runStartDistance = 0
+        steering = 0; firing = false; targetX = 0
+        jeep.position = SCNVector3(0, RoadSurface.sample(distance: 0, x: 0, seed: seed).height, 0)
+        jeep.eulerAngles = SCNVector3Zero
+        roadSuspension.reset(to: RoadSurface.sample(distance: 0, x: 0, seed: seed))
+        lastTime = nil
+        updateOpeningCamera(progress: 0)
+    }
+
+    func skipOpening() { if isInCutscene { start() } }
+    func restartOpening() { resetWorld(newSeed: true); beginOpening() }
     func setPaused(_ value: Bool) {
         isPaused = value
         scene.isPaused = value
@@ -180,7 +229,9 @@ final class GameModel: ObservableObject {
         guard started, !isGameOver, !isCrashing, !isGunning, !isTransitioning, !isPaused else { return }
         targetX = min(4.1, max(-4.1, targetX + Float(direction) * 3.6))
     }
-    func setSteering(_ value: Float) { steering = isCrashing ? 0 : min(1, max(-1, value)) }
+    func setSteering(_ value: Float) {
+        steering = started && !isGameOver && !isCrashing && !isPaused && !isGunning && !isTransitioning ? min(1, max(-1, value)) : 0
+    }
     func toggleGunner() {
         guard started, !isGameOver, !isCrashing, !isPaused, !isTransitioning else { return }
         isGunning.toggle()
@@ -208,7 +259,7 @@ final class GameModel: ObservableObject {
         hasAimRay = true
     }
     func reload() {
-        guard started, !isGameOver, !isCrashing, !isPaused, !isReloading, ammo < 24 else { return }
+        guard started, !isGameOver, !isCrashing, !isPaused, !isReloading, ammo < magazineCapacity else { return }
         isReloading = true
         reloadClock = 1.5
     }
@@ -224,7 +275,9 @@ final class GameModel: ObservableObject {
         chunks.removeAll(); hazards.removeAll(); enemies.removeAll()
         distance = 0; score = 0; health = 1; kills = 0; dodges = 0
         isGameOver = false; isCrashing = false; fatalCrash = nil; fatalCrashAge = 0; isGunning = false; started = false
-        meters = 0; elapsed = 0; obstacleClock = 1.8; enemyClock = 3
+        meters = 0; elapsed = 0; obstacleClock = 1.8; enemyClock = 3; drivingVelocity = 20
+        runStartDistance = 0; runCash = 0; titleClock = 0; openingClock = 0
+        isInCutscene = false; openingProgress = 0; armorTier = 0; engineTier = 0; magazineCapacity = 24
         dayCycleOffset = 0; lightingClock = 0; daylight = DayCycle.sample(elapsed: 0)
         isNight = false; timeOfDay = "DAY"; cycleProgress = 0
         lightingNeedsRefresh = true
@@ -254,16 +307,19 @@ final class GameModel: ObservableObject {
         prepareTracerPool()
         nextChunk = 0; nextHazardID = 0
         for index in -1...4 {
-            let chunk = WorldBuilder.makeChunk(index: nextChunk, seed: seed, night: isNight)
+            let chunk = WorldBuilder.makeChunk(index: nextChunk, seed: seed, night: isNight, openingMarket: (1...3).contains(nextChunk))
             nextChunk += 1
             chunk.position.z = -Float(index) * 48
             world.addChildNode(chunk)
             chunks.append(chunk)
         }
         for kind in 0...2 { spawnEnemy(kind: kind, z: Float(30 + kind * 10)) }
+        marketplace = Marketplace.make(seed: seed)
+        if let marketplace { world.addChildNode(marketplace) }
         cameraNode.position = SCNVector3(1.2, 3.8, 7.2)
         cameraNode.look(at: SCNVector3(0, 1, -18))
         updateCamera(dt: 1)
+        updateTitlePreview(dt: 0)
         applyLighting()
     }
 
@@ -346,9 +402,14 @@ final class GameModel: ObservableObject {
 
     func update(time: TimeInterval) {
         defer { lastTime = time }
-        guard let previous = lastTime, started, !isGameOver, !isPaused else { return }
+        guard let previous = lastTime, !isGameOver, !isPaused else { return }
         let dt = min(max(time - previous, 0), 1.0 / 20)
         guard dt > 0 else { return }
+        if !started {
+            if isInCutscene { updateOpening(dt: dt) }
+            else { updateTitlePreview(dt: dt) }
+            return
+        }
         elapsed += dt
         lightingClock += dt
         updateLighting()
@@ -364,9 +425,12 @@ final class GameModel: ObservableObject {
                 isTransitioning = false
             }
         }
-        let velocity = Float(min(28, 20 + elapsed * 0.035))
+        let pace = DrivingPace.sample(distance: max(0, meters - runStartDistance), seed: seed, engineTier: engineTier)
+        drivingVelocity = DrivingPace.filteredVelocity(current: drivingVelocity, target: pace.targetKPH / 3.6, dt: dt)
+        let velocity = Float(drivingVelocity)
         let step = velocity * Float(dt)
         meters += Double(step)
+        bankDistanceCash()
         damageClock = max(0, damageClock - dt)
         warningClock -= dt
         if warningClock <= 0 { warning = "" }
@@ -410,19 +474,73 @@ final class GameModel: ObservableObject {
         hudClock += dt
         if hudClock > 0.1 {
             hudClock = 0
-            distance = Int(meters)
+            distance = Int(max(0, meters - runStartDistance))
             speed = Double(velocity) * 3.6
             nearestPursuer = Double(enemies.map { $0.node.position.z }.min() ?? 80)
             score = distance + kills * 150 + dodges * 100
         }
     }
 
+    private func updateTitlePreview(dt: Double) {
+        titleClock += dt
+        let travel = Float(titleClock.truncatingRemainder(dividingBy: 24)) * 3
+        let lane = Float(sin(titleClock * 0.32)) * 0.45
+        let road = RoadSurface.sample(distance: Double(travel), x: lane, seed: seed)
+        jeep.position = SCNVector3(lane, road.height, -travel)
+        jeep.eulerAngles = SCNVector3(road.pitch, 0, road.roll)
+        WorldBuilder.animateVehicle(jeep, time: Float(titleClock), speed: 3, impact: 0, steering: 0)
+        WorldBuilder.poseDriver(in: jeep, progress: 0, time: Float(titleClock))
+        cameraNode.position = SCNVector3(lane + 8.2 + Float(sin(titleClock * 0.15)), road.height + 4.7, 8 - travel)
+        cameraNode.look(at: SCNVector3(lane, road.height + 0.8, -5 - travel))
+        if let marketplace { Marketplace.animate(in: marketplace, time: Float(titleClock)) }
+    }
+
+    private func updateOpening(dt: Double) {
+        openingClock += dt
+        openingProgress = min(1, openingClock / openingDuration)
+        let acceleration = max(0, (openingProgress - 0.55) / 0.45)
+        let velocity = Float(8 + 12 * acceleration)
+        let step = velocity * Float(dt)
+        meters += Double(step)
+        let lane = Float(sin(openingClock * 0.6)) * 0.35 * Float(1 - openingProgress)
+        let road = roadSuspension.update(RoadSurface.sample(distance: meters, x: lane, seed: seed), dt: Float(dt))
+        jeep.position = SCNVector3(lane, road.height, 0)
+        jeep.eulerAngles = SCNVector3(road.pitch, 0, road.roll)
+        WorldBuilder.animateVehicle(jeep, time: Float(openingClock), speed: velocity, impact: 0, steering: 0)
+        applyRoadContacts(to: jeep, distance: meters, pose: road)
+        WorldBuilder.poseDriver(in: jeep, progress: 0, time: Float(openingClock))
+        scrollRoad(by: step)
+        if let marketplace { Marketplace.animate(in: marketplace, time: Float(openingClock)) }
+        updateOpeningCamera(progress: openingProgress)
+        if openingProgress >= 1 { start() }
+    }
+
+    private func updateOpeningCamera(progress: Double) {
+        let p = Float(progress * progress * (3 - 2 * progress))
+        let road = RoadSurface.height(distance: meters, x: jeep.position.x, seed: seed)
+        cameraNode.position = SCNVector3(jeep.position.x + 8.2 * (1 - p) + 1.15 * p,
+                                        road + 4.7 * (1 - p) + 3.8 * p,
+                                        8 * (1 - p) + 7.2 * p)
+        let lookZ: Float = -5 * (1 - p) - 16 * p
+        cameraNode.look(at: SCNVector3(jeep.position.x * 0.6,
+            RoadSurface.height(distance: meters - Double(lookZ), x: jeep.position.x, seed: seed) + 0.9, lookZ))
+    }
+
+    private func bankDistanceCash() {
+        let earned = Int(max(0, meters - runStartDistance) / 10)
+        guard earned > runCash else { return }
+        garage.award(distanceCash: earned - runCash)
+        runCash = earned
+    }
+
     private func updateCamera(dt: Float) {
         let shake = sin(Float(elapsed) * 37) * impactBounce * 0.12 + recoil * 0.035
         let p = transitionProgress * transitionProgress * (3 - 2 * transitionProgress)
         let arc = sin(p * .pi)
-        scene.fogStartDistance = (45 + 40 * Double(daylight.daylight)) * Double(1 - p) + 30 * Double(p)
-        scene.fogEndDistance = (135 + 75 * Double(daylight.daylight)) * Double(1 - p) + 75 * Double(p)
+        let forwardFogStart = max(45 + 40 * Double(daylight.daylight), min(95, drivingVelocity * 2))
+        let forwardFogEnd = max(135 + 75 * Double(daylight.daylight), min(225, drivingVelocity * 5.2))
+        scene.fogStartDistance = forwardFogStart * Double(1 - p) + 30 * Double(p)
+        scene.fogEndDistance = forwardFogEnd * Double(1 - p) + 75 * Double(p)
         let desired = SCNVector3(jeep.position.x + 1.15 + 0.65 * p + arc * 4.2,
                                 3.8 - 0.6 * p + jeep.position.y + shake + arc * 1.5,
                                 7.2 - 13 * p)
@@ -442,7 +560,8 @@ final class GameModel: ObservableObject {
         let pedestrian = Int.random(in: 0...7, using: &random) == 0
         let node = pedestrian ? WorldBuilder.makePedestrian() : WorldBuilder.makeObstacle(kind: Int.random(in: 0...2, using: &random))
         let side: Float = Bool.random(using: &random) ? 1 : -1
-        node.position = SCNVector3(pedestrian ? side * 5.6 : Float(Int.random(in: -1...1, using: &random)) * 3.6, 0, -130)
+        node.position = SCNVector3(pedestrian ? side * 5.6 : Float(Int.random(in: -1...1, using: &random)) * 3.6,
+                                   0, -Float(DrivingPace.hazardLead(velocity: drivingVelocity)))
         node.position.y = RoadSurface.height(distance: meters - Double(node.position.z), x: node.position.x, seed: seed)
         node.name = pedestrian ? "pedestrianHazard" : "roadHazard"
         world.addChildNode(node)
@@ -470,6 +589,10 @@ final class GameModel: ObservableObject {
             node.position.y = RoadSurface.height(distance: meters - Double(node.position.z), x: node.position.x, seed: seed)
             node.eulerAngles.x = ground.pitch
             node.eulerAngles.z = ground.roll
+            if hazards[index].pedestrian {
+                node.eulerAngles.y = hazards[index].drift > 0 ? .pi / 2 : -.pi / 2
+                WorldBuilder.poseWalker(node, phase: node.position.x * 4.6)
+            }
             if !hazards[index].passed, node.position.z > -1.6 {
                 hazards[index].passed = true
                 let difference = abs(node.position.x - jeep.position.x)
@@ -521,7 +644,8 @@ final class GameModel: ObservableObject {
                 dodges += 1
                 announce("SHOULDER ROLLOVER +100")
             }
-            enemy.node.position.z -= Float(dt) * (enemy.kind == 0 ? 1.3 : enemy.kind == 1 ? 1.05 : 0.8)
+            let closingSpeed: Float = enemy.kind == 0 ? 1.3 : enemy.kind == 1 ? 1.05 : 0.8
+            enemy.node.position.z -= Float(dt) * closingSpeed
             let roadDistance = meters - Double(enemy.node.position.z)
             let ground = enemy.suspension.update(RoadSurface.sample(distance: roadDistance, x: enemy.node.position.x, seed: seed), dt: Float(dt))
             enemy.node.position.y = ground.height
@@ -536,7 +660,7 @@ final class GameModel: ObservableObject {
             }
             if enemy.hitPoints <= 0 { removed[index] = .roadblock }
             if removed[index] == nil, enemy.node.position.z < 3.1 { endRun(); return }
-            WorldBuilder.animateVehicle(enemy.node, time: Float(elapsed) + Float(index), speed: Float(speed / 3.6), impact: 0,
+            WorldBuilder.animateVehicle(enemy.node, time: Float(elapsed) + Float(index), speed: Float(drivingVelocity) + closingSpeed, impact: 0,
                                         steering: max(-1, min(1, lateralSpeed / 8)))
             applyRoadContacts(to: enemy.node, distance: roadDistance, pose: ground)
             enemies[index] = enemy
@@ -569,7 +693,7 @@ final class GameModel: ObservableObject {
         if recoil > 0 { recoil = max(0, recoil - Float(dt) * 8) }
         if isReloading {
             reloadClock -= dt
-            if reloadClock <= 0 { ammo = 24; isReloading = false }
+            if reloadClock <= 0 { ammo = magazineCapacity; isReloading = false }
         }
         if hitMarker {
             hitMarkerClock -= dt
@@ -633,6 +757,13 @@ final class GameModel: ObservableObject {
     }
 
     private func scrollRoad(by step: Float) {
+        if let marketplace {
+            marketplace.position.z += step
+            if marketplace.position.z > 140 {
+                marketplace.removeFromParentNode()
+                self.marketplace = nil
+            }
+        }
         for chunk in chunks { chunk.position.z += step }
         for index in chunks.indices {
             if chunks[index].position.z > 80 {
@@ -715,7 +846,7 @@ final class GameModel: ObservableObject {
     private func updateFatalCrash(dt: Float) {
         fatalCrashAge += dt
         let deceleration = max(0, 1 - fatalCrashAge / 1.4)
-        let step = Float(speed / 3.6) * deceleration * dt
+        let step = Float(drivingVelocity) * deceleration * dt
         meters += Double(step)
         scrollRoad(by: step)
         updateWrecks(dt: dt, scroll: step)
@@ -738,7 +869,7 @@ final class GameModel: ObservableObject {
 
     private func takeDamage(_ amount: Double) {
         guard damageClock <= 0 else { return }
-        health = max(0, health - amount)
+        health = max(0, health - amount * (1 - Double(armorTier) * 0.15))
         impactBounce = 1
         damageClock = 0.9
         announce("IMPACT — PURSUERS CLOSING")
@@ -748,7 +879,8 @@ final class GameModel: ObservableObject {
     private func announce(_ text: String) { warning = text; warningClock = 1.8 }
     private func endRun() {
         isGameOver = true; firing = false; steering = 0
-        distance = Int(meters); score = distance + kills * 150 + dodges * 100
+        bankDistanceCash()
+        distance = Int(max(0, meters - runStartDistance)); score = distance + kills * 150 + dodges * 100
     }
 }
 

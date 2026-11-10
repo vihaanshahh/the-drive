@@ -1,0 +1,168 @@
+{
+  "sourceArchiveSHA256": "1a75be222ee1006e6af51db6af058c951c5fc8740053eb8e7380ed6e15152f9c",
+  "sourceFormat": "User-provided Gujarat Desert Adventure v2 GLB exports",
+  "converter": "import_gujarat_characters.py",
+  "blender": "Blender 5.2.3 LTS",
+  "policy": "Source scripts were inspected for rig documentation but never executed. All twenty-two original FK joints and top-four normalized skin influences are retained. Dense curves are decimated and excess disconnected fine hair strands thinned deterministically.",
+  "textureBudget": "Three 1024px RGB maps per character; 512px vest atlas region, 256px other textile regions; constant PBR factors packed in small cells.",
+  "runtime": "Compact little-endian manifest/binary geometry; no source GLB or Blender file bundled.",
+  "animations": "Source pack contains no animation clips. Original FK bind hierarchy is preserved for the game-authored driving, gunner and walking poses.",
+  "adjustments": "Driver source chest goggles are translated (0,+0.29,-0.05) in game coordinates and attached to head; all remaining clothing/hair/accessory proportions are preserved.",
+  "outputs": {
+    "SOURCE_ASSET_CREDITS.txt": {
+      "bytes": 814,
+      "sha256": "7d660ec6d6649ffc2449c31579079eb68f044e39842251ec618f9b55aaafe449"
+    },
+    "SOURCE_README.txt": {
+      "bytes": 8073,
+      "sha256": "6e15718855c04320d6a8cafc11110d977f683e0ae81cb77d7c2ee26aacdbf0e8"
+    },
+    "driver-color.png": {
+      "bytes": 478329,
+      "sha256": "bec442204e7083a9169a45f74ea38755f99ef0ff75b226399b1a7505c22aac64"
+    },
+    "driver-metallic-roughness.png": {
+      "bytes": 334635,
+      "sha256": "4185203832755bb4bff16b0606d731f9503c6bf6cb6d96796d5cf703af7904dc"
+    },
+    "driver-normal.png": {
+      "bytes": 244403,
+      "sha256": "dd93aced0839331aea3c7f291fe4a91836442f2b36a37e7f1bdfa60740083b7a"
+    },
+    "driver.bin": {
+      "bytes": 3468460,
+      "sha256": "e55a607582caa1ede78c275410f0fcede1f6a92bdfbc604e7094bcb8b6bf5cb8"
+    },
+    "driver.json": {
+      "bytes": 14930,
+      "sha256": "415c762873c1468ac33219ded8cd3732af5c2c25e7faa1480b43ca7fd7d13295"
+    },
+    "explorer-color.png": {
+      "bytes": 457564,
+      "sha256": "dfee726589f9877c7446c8e56a0f0f154536dd11b08815ca78fd5ca482f365c5"
+    },
+    "explorer-metallic-roughness.png": {
+      "bytes": 334636,
+      "sha256": "3df71c7c82b458c56e3ace17cf4862d23e590657704e71e4910579377eb70982"
+    },
+    "explorer-normal.png": {
+      "bytes": 244403,
+      "sha256": "dd93aced0839331aea3c7f291fe4a91836442f2b36a37e7f1bdfa60740083b7a"
+    },
+    "explorer.bin": {
+      "bytes": 3199876,
+      "sha256": "7677bc2baf13262ae072f4f25780361f5d53471f0d50807d7b6b5f09faa50076"
+    },
+    "explorer.json": {
+      "bytes": 13169,
+      "sha256": "3e4d76e63caa9662ed6936963feae7b8b91398d23cc1b55c1e820faf51819bfd"
+    },
+    "grandpa-color.png": {
+      "bytes": 392195,
+      "sha256": "8067de476d421f2ccdb42e8d9dfbcb2b53fe1dbab39b7d70b1993f4b7211fb31"
+    },
+    "grandpa-metallic-roughness.png": {
+      "bytes": 290094,
+      "sha256": "de9b4563c584ad35d41780703e99417da1a3f99db1603141dbdb5c2f2d5b5781"
+    },
+    "grandpa-normal.png": {
+      "bytes": 226819,
+      "sha256": "1486abab43638f9b8ee2a4c892bfd5d1994e1102d57745507c84d9a0eaa02502"
+    },
+    "grandpa.bin": {
+      "bytes": 3170164,
+      "sha256": "cf87707568c30a0b2067f4d81f59156eaad9a97c465f13397392edcad043956d"
+    },
+    "grandpa.json": {
+      "bytes": 13160,
+      "sha256": "435d66b71a22d6e206ddb2d05fb8709244da778d29ad6bc1299360bf718ba3b2"
+    }
+  },
+  "sourceArchiveName": "Gujarat_Desert_Characters_Pack.zip",
+  "characters": {
+    "driver": {
+      "sourceTriangles": 2279948,
+      "triangles": 39609,
+      "vertices": 53424,
+      "joints": 22,
+      "meshes": 5,
+      "drawCalls": 5,
+      "sourceMeshObjects": 201,
+      "removedFineHairComponents": 4568,
+      "fallbackUnweightedVertices": 0,
+      "maxWeightSumError": 2.220446049250313e-16,
+      "bounds": {
+        "min": [
+          -0.4457355737686157,
+          -0.0008484309655614197,
+          -0.17360809445381165
+        ],
+        "max": [
+          0.44515785574913025,
+          1.8241665363311768,
+          0.21891474723815918
+        ]
+      },
+      "binaryBytes": 3468460,
+      "goggleVerticesPromoted": 4842
+    },
+    "explorer": {
+      "sourceTriangles": 1389856,
+      "triangles": 31269,
+      "vertices": 50415,
+      "joints": 22,
+      "meshes": 2,
+      "drawCalls": 2,
+      "sourceMeshObjects": 204,
+      "removedFineHairComponents": 2046,
+      "fallbackUnweightedVertices": 0,
+      "maxWeightSumError": 2.220446049250313e-16,
+      "bounds": {
+        "min": [
+          -0.4410356283187866,
+          -0.0008484309655614197,
+          -0.17679989337921143
+        ],
+        "max": [
+          0.44104522466659546,
+          1.8042749166488647,
+          0.24428099393844604
+        ]
+      },
+      "binaryBytes": 3199876,
+      "goggleVerticesPromoted": 0
+    },
+    "grandpa": {
+      "sourceTriangles": 1579398,
+      "triangles": 34253,
+      "vertices": 49245,
+      "joints": 22,
+      "meshes": 2,
+      "drawCalls": 2,
+      "sourceMeshObjects": 173,
+      "removedFineHairComponents": 1938,
+      "fallbackUnweightedVertices": 0,
+      "maxWeightSumError": 2.220446049250313e-16,
+      "bounds": {
+        "min": [
+          -0.44546034932136536,
+          -0.0008484309655614197,
+          -0.2056017965078354
+        ],
+        "max": [
+          0.4442717730998993,
+          1.8057612180709839,
+          0.21833446621894836
+        ]
+      },
+      "binaryBytes": 3170164,
+      "goggleVerticesPromoted": 0
+    }
+  },
+  "verification": {
+    "bindIdentityMaximumAbsoluteError": 4.39e-07,
+    "bindVerification": "Independent loader-agent composition of exported node-world matrices and inverse-bind matrices for every bone; all three variants.",
+    "geometry": "Every binary slice bounds-checked; all positions/normals/UVs/weights finite; normals unit within1e-4; weights sum1within1e-5; every index in range; all22joints retained.",
+    "sourceScriptsExecuted": false
+  }
+}
