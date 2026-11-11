@@ -90,7 +90,7 @@ The default export directory is `UnityDrive/Builds/iOS`; `THE_DRIVE_UNITY_IOS_OU
 
 The current **11 EditMode checks passed** in Unity 6000.3.28f1. They cover source mesh/resource identity, all three actual 22-bone characters, finite CPU-baked posed skins, valid triangle indices, PBR textures and sampled atlas UVs, wheel pivots, seeded road/pace behavior, touch cancellation, and stable pooled world objects/meshes after 10,000 frames and resets.
 
-The Mac player runtime smoke check passed with **zero errors**. It exercises startup, actual Jeep/driver rendering, entering a run, increasing distance, steering input, pause/resume, and touch reacquisition. Screenshots were inspected for the title and driving HUD. The separate iPhone Release app compiled and its signature verified; physical installation and sustained mobile frame rate/thermal behavior still need device verification.
+The Mac player runtime smoke check passed with **zero errors**. It exercises startup, actual Jeep/driver rendering, increasing distance, steering input, and touch reacquisition. Start, Pause, and Resume are checked through the visible buttons' UI raycasts and pointer handlers. Screenshots were inspected for the title and driving HUD. The separate iPhone Release app compiled and its signature verified; physical installation and sustained mobile frame rate/thermal behavior still need device verification.
 
 The existing themed app icon and launch illustration are reused for iPhone. The launch screen includes iOS's loading indicator.
 

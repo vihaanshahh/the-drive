@@ -1,9 +1,11 @@
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace TheDrive.UnityGame
 {
@@ -38,7 +40,7 @@ namespace TheDrive.UnityGame
             var game = DriveGame.Instance;
             yield return new WaitForSeconds(1);
             yield return Capture("market.png");
-            game.StartRun();
+            if (!Tap("Start")) errors++;
             yield return new WaitForSeconds(2);
             double before = game.Distance;
             var pointer = new PointerEventData(EventSystem.current) { pointerId = 17 };
@@ -54,12 +56,12 @@ namespace TheDrive.UnityGame
             if (!game.Running || game.Distance <= before || !double.IsFinite(game.SpeedKPH)) errors++;
             yield return Capture("driving.png");
             if (left != null) left.OnPointerDown(pointer);
-            game.SetPaused(true);
+            if (!Tap("Pause")) errors++;
             if (left != null && left.IsHeld) errors++;
             double paused = game.Distance;
             yield return new WaitForSeconds(.4f);
             if (game.Distance != paused) errors++;
-            game.SetPaused(false);
+            if (!Tap("RESUME")) errors++;
             if (left != null)
             {
                 var nextPointer = new PointerEventData(EventSystem.current) { pointerId = 18 };
@@ -83,6 +85,29 @@ namespace TheDrive.UnityGame
             yield return new WaitForEndOfFrame();
             ScreenCapture.CaptureScreenshot(Path.Combine(directory, name));
             yield return null;
+        }
+
+        private bool Tap(string name)
+        {
+            Canvas.ForceUpdateCanvases();
+            Button button = null;
+            foreach (var candidate in FindObjectsByType<Button>(FindObjectsSortMode.None))
+                if (candidate.name == name) { button = candidate; break; }
+            if (button == null || !button.IsInteractable()) return false;
+            var rect = button.GetComponent<RectTransform>();
+            var pointer = new PointerEventData(EventSystem.current)
+            {
+                pointerId = -1,
+                button = PointerEventData.InputButton.Left,
+                position = RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center))
+            };
+            var hits = new List<RaycastResult>();
+            EventSystem.current.RaycastAll(pointer, hits);
+            if (hits.Count == 0 || hits[0].gameObject != button.gameObject) return false;
+            ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerDownHandler);
+            ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerUpHandler);
+            ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerClickHandler);
+            return true;
         }
 
         private void OnLog(string text, string stack, LogType type)
