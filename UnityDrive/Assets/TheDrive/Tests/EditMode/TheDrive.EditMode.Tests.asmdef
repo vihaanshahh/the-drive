@@ -1,0 +1,8 @@
+{
+  "name": "TheDrive.EditMode.Tests",
+  "rootNamespace": "TheDrive.UnityGame.Tests",
+  "references": ["TheDrive.Runtime"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}

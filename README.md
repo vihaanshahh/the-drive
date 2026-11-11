@@ -2,6 +2,10 @@
 
 A native iOS 3D endless escape game built with SwiftUI and SceneKit. Play as an Indian driver escaping a fictional local gang. Drive an old jeep through a procedurally generated ruined desert town, bait pursuers into obstacles, and switch to the rear-mounted gun when the road is clear.
 
+## Unity prototype
+
+A separate [first Unity driving milestone](UnityDrive/README.md) now lives in `UnityDrive`, pinned to Unity 6000.3.28f1. It includes the actual Jeep and Gujarat driver, seeded endless driving, and keyboard/touch controls. The native Swift game below remains the fuller version: music, the upgrade shop, combat, day/night, and the live mirror have not yet been ported. See the Unity README for local Personal builds, tests, and the separate iOS app.
+
 ## Play
 
 1. Open `TheDrive.xcodeproj` in Xcode.
